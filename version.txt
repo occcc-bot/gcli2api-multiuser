@@ -1,0 +1,6 @@
+release=0.1.0
+short_hash=multiuser-0.1.0
+full_hash=
+message=Invite-only multiuser and member OAuth release
+upstream_commit=934c8ce8b3648b2530ab8a36c409d70d699ab680
+date=

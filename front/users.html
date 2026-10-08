@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>个人凭证与 API Key · gcli2api</title>
+  <style>
+    :root { color-scheme: light; --bg:#f3f5fa; --card:#fff; --text:#182033; --muted:#657086; --line:#dce2ec; --accent:#3458d4; --danger:#b42332; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { max-width:1060px; margin:auto; padding:32px 20px 60px; }
+    header,.section-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    h1 { font-size:27px; margin:0; } h2 { font-size:20px; margin:0 0 16px; } h3 { font-size:17px; margin:0 0 12px; }
+    p { margin:8px 0 16px; } .muted,small { color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
+    .card { padding:24px; background:var(--card); border:1px solid var(--line); border-radius:14px; margin-top:20px; min-width:0; }
+    label { display:block; margin:12px 0 5px; font-weight:600; }
+    input,textarea,button { font:inherit; }
+    input,textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); }
+    input:focus,textarea:focus,button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+    button { border:0; border-radius:8px; padding:10px 16px; background:var(--accent); color:#fff; cursor:pointer; }
+    button.secondary { background:var(--bg); color:var(--text); border:1px solid var(--line); }
+    button.danger { background:transparent; color:var(--danger); border:1px solid var(--line); }
+    button:disabled { opacity:.55; cursor:wait; }
+    form > button { margin-top:16px; }
+    .section-heading h2 { margin:0; } .actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .notice { padding:12px 16px; margin-top:20px; border:1px solid var(--line); border-radius:8px; overflow-wrap:anywhere; }
+    .notice.error { color:var(--danger); border-color:var(--danger); }
+    .list { list-style:none; padding:0; margin:18px 0 0; }
+    .list li { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 0; border-top:1px solid var(--line); }
+    .item-info { min-width:0; overflow-wrap:anywhere; } .item-info strong,.item-info small { display:block; }
+    .list button { flex-shrink:0; }
+    .secret-box { margin-top:18px; padding:16px; border:1px solid var(--accent); border-radius:10px; }
+    .secret-box textarea { margin:8px 0 12px; overflow-wrap:anywhere; resize:vertical; }
+    details > summary { cursor:pointer; font-weight:600; } details form { max-width:600px; }
+    [hidden] { display:none !important; }
+    @media(max-width:680px) { main { padding:20px 12px 40px; } .grid { grid-template-columns:1fr; gap:0; } .card { padding:18px; } h1 { font-size:23px; } .list li { align-items:flex-start; } }
+    @media(prefers-color-scheme:dark) { :root { color-scheme:dark; --bg:#111827; --card:#1c2536; --text:#e5eaf3; --muted:#a5b1c6; --line:#3a465b; --accent:#6484ef; --danger:#ff9ca7; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>个人凭证与 API Key</h1><p class="muted">通过 Google 授权获取自己的 Antigravity 凭证，创建专属调用密钥。</p></div>
+    <div id="account" class="actions" hidden><span id="account-name"></span><button id="logout" class="secondary" type="button">退出登录</button></div>
+  </header>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <section id="auth" class="grid" aria-label="登录与注册">
+    <div class="card">
+      <h2>登录</h2>
+      <form id="login-form">
+        <label for="login-username">用户名</label><input id="login-username" name="username" autocomplete="username" required maxlength="64">
+        <label for="login-password">密码</label><input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">登录</button>
+      </form>
+    </div>
+    <div class="card">
+      <h2>邀请注册</h2>
+      <form id="register-form">
+        <label for="register-invite">邀请码</label><input id="register-invite" name="invite" autocomplete="off" required>
+        <label for="register-username">用户名</label><input id="register-username" name="username" autocomplete="username" required maxlength="64">
+        <label for="register-password">密码</label><input id="register-password" name="password" type="password" autocomplete="new-password" minlength="10" maxlength="256" placeholder="至少 10 个字符" required>
+        <button type="submit">注册账号</button>
+      </form>
+    </div>
+  </section>
+  <section id="portal" hidden aria-label="个人管理">
+    <div class="card">
+      <h2>Google OAuth 获取凭证</h2>
+      <p class="muted">不需要准备 JSON 文件：生成授权链接，在 Google 完成授权，再把跳转后的完整地址粘贴回来。凭证会自动保存到当前账号。</p>
+      <button id="oauth-start" type="button">生成 Google 授权链接</button>
+      <div id="oauth-flow" hidden>
+        <ol>
+          <li>打开下面的链接，用你自己的 Google 账号完成 Antigravity 授权。</li>
+          <li>授权后会跳转到 <code>http://localhost:11451</code>。该页面可能显示“无法连接”，这是本流程的预期情况；复制浏览器地址栏的完整 URL（包含 <code>code</code> 和 <code>state</code>）。</li>
+          <li>粘贴到下方，点击“完成授权并保存凭证”。无需把地址发给管理员。</li>
+        </ol>
+        <div class="actions"><a id="oauth-open" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer">打开 Google 授权页面 ↗</a><button id="oauth-copy" class="secondary" type="button">复制授权链接</button></div>
+        <input id="oauth-url" readonly aria-label="Google 授权链接" style="margin-top:12px">
+        <p id="oauth-expiry" class="muted"></p>
+        <form id="oauth-complete-form">
+          <label for="oauth-callback">授权后的完整回调地址</label>
+          <textarea id="oauth-callback" rows="4" required maxlength="16384" placeholder="http://localhost:11451/?state=…&amp;code=…" spellcheck="false" autocomplete="off"></textarea>
+          <button type="submit">完成授权并保存凭证</button>
+        </form>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card">
+        <div class="section-heading"><h2>我的凭证</h2><button id="refresh-credentials" class="secondary" type="button">刷新</button></div>
+        <p class="muted">仅管理当前账号的 Antigravity 凭证。可一次选择多个 JSON 文件。</p>
+        <form id="upload-form">
+          <label for="credential-files">凭证文件</label><input id="credential-files" name="files" type="file" accept=".json,application/json" multiple required>
+          <button type="submit">上传凭证</button>
+        </form>
+        <ul id="credential-list" class="list" aria-label="凭证列表"></ul>
+      </div>
+      <div class="card">
+        <div class="section-heading"><h2>我的 API Key</h2><button id="refresh-keys" class="secondary" type="button">刷新</button></div>
+        <p class="muted">调用仅使用你自己的凭证。完整密钥仅在创建后显示，请及时复制。</p>
+        <form id="key-form">
+          <label for="key-name">密钥名称</label><input id="key-name" name="name" placeholder="例如：我的客户端" maxlength="100" required>
+          <button type="submit">创建 API Key</button>
+        </form>
+        <div id="new-key-box" class="secret-box" hidden>
+          <strong>新密钥（仅此次显示）</strong>
+          <textarea id="new-key" rows="3" readonly aria-label="新创建的 API Key" spellcheck="false"></textarea>
+          <div class="actions"><button id="copy-key" type="button">复制密钥</button><button id="dismiss-key" class="secondary" type="button">已保存，隐藏</button></div>
+        </div>
+        <ul id="key-list" class="list" aria-label="API Key 列表"></ul>
+      </div>
+    </div>
+  </section>
+  <details class="card">
+    <summary>管理员：生成邀请链接</summary>
+    <p class="muted">使用管理面板密码生成有效期为 72 小时的邀请码。此密码不会存储在浏览器中。</p>
+    <form id="invite-form">
+      <label for="admin-password">管理面板密码</label><input id="admin-password" type="password" autocomplete="off" required>
+      <button type="submit">生成邀请链接</button>
+    </form>
+    <div id="invite-result" hidden>
+      <label for="invite-link">邀请链接</label><input id="invite-link" readonly>
+      <button id="copy-invite" class="secondary" type="button" style="margin-top:12px">复制链接</button>
+    </div>
+  </details>
+</main>
+<script>
+'use strict';
+// Contract: all endpoints use /users; user auth uses a session Bearer token.
+// POST /register {invite,username,password}, POST /login {username,password} -> {token}.
+// GET /me -> {username} or {user:{username}}.
+// GET /credentials -> {credentials:[{filename,...}]} or an array; upload multipart
+// POST /credentials with repeated "files" fields and "mode=antigravity".
+// DELETE /credentials/{encoded filename}?mode=antigravity.
+// GET /keys -> {keys:[{id,name,prefix,created_at,revoked,...}]} or an array;
+// POST /keys {name} -> {key:"full secret"}; DELETE /keys/{id}.
+// POST /invites uses the manual panel password as Bearer, {expires_hours:72} -> {invite}.
+(() => {
+  const $ = id => document.getElementById(id);
+  const storageKey = 'gcli2api.user.token';
+  let token = '';
+  let generation = 0;
+  try { token = sessionStorage.getItem(storageKey) || ''; } catch (_) { /* In-memory auth works when storage is unavailable. */ }
+  function message(text, error = false) {
+    $('notice').textContent = text;
+    $('notice').classList.toggle('error', error);
+    $('notice').hidden = !text;
+  }
+  function clearSecret() { $('new-key').value = ''; $('new-key-box').hidden = true; }
+  function clearOAuth() {
+    $('oauth-flow').hidden = true; $('oauth-url').value = ''; $('oauth-callback').value = '';
+    $('oauth-open').removeAttribute('href'); $('oauth-expiry').textContent = '';
+  }
+  function saveToken(value) {
+    token = value;
+    try { if (value) sessionStorage.setItem(storageKey, value); else sessionStorage.removeItem(storageKey); } catch (_) {}
+  }
+  function logout() {
+    generation++;
+    saveToken('');
+    clearSecret(); clearOAuth();
+    $('auth').hidden = false; $('portal').hidden = true; $('account').hidden = true;
+    $('account-name').textContent = '';
+    $('credential-list').replaceChildren(); $('key-list').replaceChildren();
+    $('upload-form').reset(); $('key-form').reset();
+  }
+  async function api(path, options = {}) {
+    const { body, admin, anonymous = false, method = 'GET' } = options;
+    const headers = { Accept: 'application/json' };
+    const authToken = admin !== undefined ? admin : (anonymous ? '' : token);
+    if (authToken) headers.Authorization = 'Bearer ' + authToken;
+    let payload = body;
+    if (body !== undefined && !(body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body);
+    }
+    const response = await fetch('/users' + path, { method, headers, body:payload, credentials:'omit', cache:'no-store' });
+    const raw = await response.text();
+    let data = {};
+    if (raw) { try { data = JSON.parse(raw); } catch (_) { if (response.ok) throw new Error('服务返回了非 JSON 响应'); } }
+    if (!response.ok) {
+      if (response.status === 401 && admin === undefined && !anonymous && authToken === token) logout();
+      const detail = data.detail || data.error || data.message;
+      const oauthErrors = {
+        'Invalid OAuth request':'授权请求格式不正确，请重新生成链接',
+        'Invalid OAuth callback':'回调地址不正确，请复制 Google 授权后浏览器地址栏的完整 localhost 地址',
+        'Invalid or expired OAuth flow; start again':'授权链接已过期、已使用或不属于当前账号，请重新生成授权链接',
+        'OAuth initialization failed; start again':'授权链接生成失败，请重新生成',
+        'OAuth authorization failed; authorize again':'获取 Google 凭证或项目失败，请重新生成链接并完成授权',
+        'Too many OAuth flows; retry later':'当前授权请求较多，请稍后重新生成链接'
+      };
+      throw new Error(typeof detail === 'string' ? (oauthErrors[detail] || detail) : ('请求失败（HTTP ' + response.status + '）'));
+    }
+    return data;
+  }
+  async function run(button, task) {
+    button.disabled = true;
+    try { await task(); } catch (error) { message(error.message || '请求失败，请重试', true); }
+    finally { button.disabled = false; }
+  }
+  function rows(data, field) {
+    const result = Array.isArray(data) ? data : data[field];
+    if (!Array.isArray(result)) throw new Error('列表响应格式不符合预期：' + field);
+    return result;
+  }
+  function emptyList(list, text) {
+    const li = document.createElement('li'); li.textContent = text; li.className = 'muted'; list.append(li);
+  }
+  function listItem(title, details, action, handler) {
+    const li = document.createElement('li');
+    const info = document.createElement('div'); info.className = 'item-info';
+    const name = document.createElement('strong'); name.textContent = title; info.append(name);
+    if (details) { const small = document.createElement('small'); small.textContent = details; info.append(small); }
+    li.append(info);
+    if (action) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'danger'; button.textContent = action;
+      button.addEventListener('click', () => run(button, handler)); li.append(button);
+    }
+    return li;
+  }
+  async function loadCredentials() {
+    const current = generation;
+    const data = await api('/credentials?mode=antigravity');
+    if (current !== generation || !token) return;
+    const entries = rows(data, 'credentials'); const list = $('credential-list'); list.replaceChildren();
+    if (!entries.length) emptyList(list, '尚未上传凭证');
+    entries.forEach(entry => {
+      const filename = typeof entry === 'string' ? entry : entry.filename;
+      if (typeof filename !== 'string') return;
+      const details = typeof entry === 'object' ? (entry.disabled ? '已停用' : 'Antigravity') : 'Antigravity';
+      list.append(listItem(filename, details, '删除', async () => {
+        if (!confirm('删除凭证“' + filename + '”？')) return;
+        await api('/credentials/' + encodeURIComponent(filename) + '?mode=antigravity', { method:'DELETE' });
+        await loadCredentials(); message('凭证已删除');
+      }));
+    });
+  }
+  async function loadKeys() {
+    const current = generation;
+    const data = await api('/keys');
+    if (current !== generation || !token) return;
+    const entries = rows(data, 'keys'); const list = $('key-list'); list.replaceChildren();
+    if (!entries.length) emptyList(list, '尚未创建 API Key');
+    entries.forEach(entry => {
+      const revoked = Boolean(entry.revoked || entry.revoked_at || entry.is_active === false);
+      // Never render a full key returned by a list endpoint.
+      const details = [revoked ? '已撤销' : '有效', entry.created_at ? '创建于 ' + entry.created_at : ''].filter(Boolean).join(' · ');
+      list.append(listItem(String(entry.name || '未命名密钥'), details, revoked || entry.id == null ? null : '撤销', async () => {
+        if (!confirm('撤销此 API Key？使用该密钥的客户端将无法继续调用。')) return;
+        await api('/keys/' + encodeURIComponent(String(entry.id)), { method:'DELETE' });
+        clearSecret(); await loadKeys(); message('API Key 已撤销');
+      }));
+    });
+  }
+  async function enterPortal() {
+    const current = generation;
+    const data = await api('/me');
+    if (current !== generation || !token) return;
+    const user = data.user || data;
+    $('account-name').textContent = '当前账号：' + String(user.username || '已登录');
+    $('account').hidden = false; $('auth').hidden = true; $('portal').hidden = false;
+    await Promise.all([loadCredentials(), loadKeys()]);
+  }
+  $('login-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      const data = await api('/login', { method:'POST', anonymous:true, body:{ username:$('login-username').value.trim(), password:$('login-password').value } });
+      if (typeof data.token !== 'string' || !data.token) throw new Error('登录响应缺少 token');
+      generation++; saveToken(data.token); $('login-password').value = ''; message('登录成功'); await enterPortal();
+    });
+  });
+  $('register-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      const username = $('register-username').value.trim();
+      await api('/register', { method:'POST', anonymous:true, body:{ invite:$('register-invite').value.trim(), username, password:$('register-password').value } });
+      $('register-password').value = ''; $('login-username').value = username;
+      message('注册成功，请使用新账号登录'); $('login-password').focus();
+    });
+  });
+  $('oauth-start').addEventListener('click', event => run(event.currentTarget, async () => {
+    const current = generation;
+    clearOAuth();
+    const data = await api('/oauth/start', {method:'POST', body:{}});
+    if (current !== generation || !token) return;
+    const url = new URL(data.auth_url);
+    if (url.protocol !== 'https:' || url.hostname !== 'accounts.google.com') throw new Error('授权链接格式错误');
+    $('oauth-url').value = url.href; $('oauth-open').href = url.href;
+    $('oauth-expiry').textContent = data.expires_at ? '链接有效至：' + new Date(data.expires_at * 1000).toLocaleString() + '；重新生成会替换上一次授权。' : '';
+    $('oauth-flow').hidden = false;
+    message('授权链接已生成，请打开 Google 授权页面，完成后复制回调地址');
+  }));
+  $('oauth-complete-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      const current = generation;
+      await api('/oauth/complete', {method:'POST', body:{callback_url:$('oauth-callback').value.trim()}});
+      if (current !== generation || !token) return;
+      clearOAuth(); await loadCredentials();
+      message('Google 授权成功，凭证已保存到你的账号；可以创建 API Key 开始调用');
+    });
+  });
+  $('oauth-copy').addEventListener('click', () => copy('oauth-url'));
+  $('upload-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      const body = new FormData(); body.append('mode', 'antigravity');
+      for (const file of $('credential-files').files) body.append('files', file);
+      await api('/credentials', { method:'POST', body }); $('upload-form').reset();
+      await loadCredentials(); message('上传完成');
+    });
+  });
+  $('key-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      const current = generation;
+      const data = await api('/keys', { method:'POST', body:{ name:$('key-name').value.trim() } });
+      if (current !== generation || !token) return;
+      if (typeof data.key !== 'string' || !data.key) throw new Error('创建响应缺少完整 key，请检查服务接口');
+      $('new-key').value = data.key; $('new-key-box').hidden = false; $('key-form').reset();
+      message('API Key 已创建，请复制保存'); await loadKeys();
+    });
+  });
+  $('invite-form').addEventListener('submit', event => {
+    event.preventDefault();
+    run(event.submitter || event.target.querySelector('button'), async () => {
+      $('invite-result').hidden = true; $('invite-link').value = '';
+      const password = $('admin-password').value; $('admin-password').value = '';
+      const data = await api('/invites', { method:'POST', admin:password, body:{ expires_hours:72 } });
+      if (typeof data.invite !== 'string' || !data.invite) throw new Error('邀请响应缺少 invite');
+      const link = new URL(location.pathname, location.origin); link.searchParams.set('invite', data.invite);
+      $('invite-link').value = link.href; $('invite-result').hidden = false; message('邀请链接已生成，有效期 72 小时');
+    });
+  });
+  async function copy(input) {
+    const value = $(input).value;
+    if (!value) return;
+    try { await navigator.clipboard.writeText(value); message('已复制'); }
+    catch (_) { $(input).focus(); $(input).select(); message('请手动复制已选中的内容'); }
+  }
+  $('copy-key').addEventListener('click', () => copy('new-key'));
+  $('copy-invite').addEventListener('click', () => copy('invite-link'));
+  $('dismiss-key').addEventListener('click', clearSecret);
+  $('logout').addEventListener('click', event => run(event.currentTarget, async () => {
+    try { await api('/logout', {method:'POST'}); }
+    finally { logout(); }
+    message('已退出登录');
+  }));
+  $('refresh-credentials').addEventListener('click', event => run(event.currentTarget, loadCredentials));
+  $('refresh-keys').addEventListener('click', event => run(event.currentTarget, loadKeys));
+  const invite = new URLSearchParams(location.search).get('invite');
+  if (invite) $('register-invite').value = invite;
+  if (token) enterPortal().catch(error => message(error.message, true));
+})();
+</script>
+</body>
+</html>

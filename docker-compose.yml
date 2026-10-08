@@ -1,0 +1,11 @@
+services:
+  gcli2api:
+    build: .
+    image: gcli2api-multiuser:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PUBLISHED_PORT:-7861}:${PORT:-7861}"
+    volumes:
+      - ./creds:/app/creds
