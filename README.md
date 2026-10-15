@@ -12,6 +12,7 @@
 - 用户注册、登录、退出；会话与 API Key 分离。
 - 个人页面生成 Google OAuth 授权链接，粘贴回调 URL 后自动获取 Antigravity 凭证。
 - 支持上传已有 JSON 凭证、查看个人凭证列表和删除。
+- 每条个人凭证可查询/刷新各模型的剩余额度、进度条和重置时间；只查询自己的凭证，不遍历公共池。
 - 每个账户创建多个 API Key，可单独撤销；完整 Key 只在创建时返回。
 - 每次调用只选择 Key 所属账户的凭证，流式、非流式、自动重试、预热任务均按用户隔离。
 - 自己的凭证不可用时返回错误，**不回退到管理员或其他用户的凭证池**。
@@ -82,6 +83,8 @@ Compose 将 `./creds` 挂载至 `/app/creds`，其中包含凭证和用户数据
 ```sh
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -p 'test_multiuser*.py' -v
+# 前端额度展示测试：使用 Node.js 22 或更新版本，无额外 npm 依赖
+node --test tests/test_member_quota_ui.mjs
 ```
 
 也可以在构建后的容器中执行合成测试：
@@ -93,7 +96,7 @@ docker compose run --rm --no-deps --entrypoint python \
   gcli2api -m unittest discover -s tests -p 'test_multiuser*.py' -v
 ```
 
-51 项合成测试覆盖邀请的一次性消费、账户/Key 鉴权、跨用户凭证隔离、并发/流式上下文、OAuth 回调校验、过期/重放、单次认领、失败保存及二开版本检查。测试使用临时数据库与模拟 Google 接口，不使用真实凭证。
+78 项 Python 合成测试覆盖邀请的一次性消费、账户/Key 鉴权、跨用户凭证隔离、并发/流式上下文、OAuth 回调校验、过期/重放、单次认领、失败保存、二开版本检查及个人额度查询隔离。另有 5 项无 npm 依赖的前端额度展示测试，覆盖百分比、时区、空额度、进度条及文本安全渲染。测试使用临时数据库与模拟 Google 接口，不使用真实凭证。
 
 ## 公开源码与脱敏
 
@@ -109,6 +112,7 @@ docker compose run --rm --no-deps --entrypoint python \
 |---|---|
 | `src/multiuser.py` | 邀请、账户、会话、API Key、凭证归属和个人管理接口 |
 | `src/member_oauth.py` | 用户隔离的 OAuth 链接与回调交换 |
+| `src/member_quota.py` | 按归属查询单条个人凭证额度，刷新 token 并保留原凭证元数据 |
 | `src/utils.py` | API 鉴权解析用户身份、OAuth 环境变量 |
 | `src/credential_manager.py` | 在选择/刷新凭证前限定用户归属 |
 | `web.py` | 用户路由、页面和请求身份上下文 |

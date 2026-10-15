@@ -33,6 +33,7 @@ from src.panel import router as panel_router
 from src.keeplive import keepalive_service
 from src.multiuser import router as users_router, current_owner
 from src.member_oauth import router as member_oauth_router
+from src.member_quota import router as member_quota_router
 
 # 全局凭证管理器
 global_credential_manager = None
@@ -197,6 +198,7 @@ async def isolate_account_context(request, call_next):
 
 app.include_router(users_router, tags=["User Accounts"])
 app.include_router(member_oauth_router, tags=["Member OAuth"])
+app.include_router(member_quota_router, tags=["Member Quota"])
 
 
 @app.get("/users", include_in_schema=False)
