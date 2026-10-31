@@ -54,7 +54,7 @@ async def start_auth(request: AuthStartRequest, token: str = Depends(verify_pane
         # 使用认证令牌作为用户会话标识
         user_session = token if token else None
         result = await create_auth_url(
-            project_id, user_session, mode=request.mode
+            project_id, user_session
         )
 
         if result["success"]:
@@ -87,7 +87,7 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
         user_session = token if token else None
         # 异步等待OAuth回调完成
         result = await asyncio_complete_auth_flow(
-            project_id, user_session, mode=request.mode
+            project_id, user_session
         )
 
         if result["success"]:
@@ -95,7 +95,8 @@ async def auth_callback(request: AuthCallbackRequest, token: str = Depends(verif
             return JSONResponse(
                 content={
                     "credentials": result["credentials"],
-                    "file_path": result["file_path"],
+                    "email": result.get("email", ""),
+                    "tier": result.get("tier"),
                     "message": "认证成功，凭证已保存",
                     "auto_detected_project": result.get("auto_detected_project", False),
                 }
@@ -138,7 +139,7 @@ async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depend
 
         # 从回调URL完成认证
         result = await complete_auth_flow_from_callback_url(
-            request.callback_url, request.project_id, mode=request.mode
+            request.callback_url, request.project_id
         )
 
         if result["success"]:
@@ -146,7 +147,8 @@ async def auth_callback_url(request: AuthCallbackUrlRequest, token: str = Depend
             return JSONResponse(
                 content={
                     "credentials": result["credentials"],
-                    "file_path": result["file_path"],
+                    "email": result.get("email", ""),
+                    "tier": result.get("tier"),
                     "message": "从回调URL认证成功，凭证已保存",
                     "auto_detected_project": result.get("auto_detected_project", False),
                 }

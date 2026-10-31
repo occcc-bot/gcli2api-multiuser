@@ -1,0 +1,6 @@
+{
+  "repository": "occcc-bot/gcli2api-multiuser",
+  "release": "0.2.0",
+  "upstream_commit": "6cc45620f1ecbe12bda7792b2daf8940d8a4ffde",
+  "message": "Migrate to AGY2API with modular owner-isolated multiuser extension"
+}

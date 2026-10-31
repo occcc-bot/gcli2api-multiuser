@@ -1,20 +1,14 @@
-> **Archived upstream documentation:** This document describes `su-kaka/gcli2api`, not the multiuser fork. Its installation scripts/images deploy upstream. For this fork, invitation accounts, credential isolation and required OAuth environment variables, follow the [current README](../README.md).
+# AGY2API
 
-# GeminiCLI to API
-
-**Convert GeminiCLI and Antigravity to OpenAI, GEMINI, and Claude API Compatible Interfaces**
+**Convert Google Antigravity to OpenAI, Gemini, and Claude API Compatible Interfaces**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: CNC-1.0](https://img.shields.io/badge/License-CNC--1.0-red.svg)](../LICENSE)
-[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/su-kaka/gcli2api/pkgs/container/gcli2api)
+[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/su-kaka/agy2api/pkgs/container/agy2api)
 
 [中文](../README.md) | English | [日本語](./README_JA.md)
 
-## 🚀 Quick Deploy
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/97VMEF?referralCode=sukaka)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/su-kaka/gcli2api)
----
+> **⚠️ Important Change**: The GeminiCLI endpoint has been deprecated by Google. All GeminiCLI-related code has been completely removed; only the Antigravity mode remains.
 
 ## Installation Guide
 
@@ -22,12 +16,12 @@
 
 **Initial Installation**
 ```bash
-curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
+curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
 ```
 
 **Restart Service**
 ```bash
-cd gcli2api
+cd agy2api
 bash termux-start.sh
 ```
 
@@ -35,7 +29,7 @@ bash termux-start.sh
 
 **Initial Installation**
 ```powershell
-iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
+iex (iwr "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
 ```
 
 **Restart Service**
@@ -45,12 +39,12 @@ Double-click to execute `start.bat`
 
 **Initial Installation**
 ```bash
-curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
+curl -o install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
 ```
 
 **Restart Service**
 ```bash
-cd gcli2api
+cd agy2api
 bash start.sh
 ```
 
@@ -58,12 +52,12 @@ bash start.sh
 
 **Initial Installation**
 ```bash
-curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
+curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
 ```
 
 **Restart Service**
 ```bash
-cd gcli2api
+cd agy2api
 bash start.sh
 ```
 
@@ -71,37 +65,21 @@ bash start.sh
 
 **Docker Run Command**
 ```bash
-# Using universal password
-docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-
-# Using separate passwords
-docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+docker run -d --name agy2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds -v $(pwd)/data/request_logs:/app/data/request_logs ghcr.io/su-kaka/agy2api:latest
 ```
 
 **Docker Mac**
 ```bash
-# Using universal password
 docker run -d \
-  --name gcli2api \
+  --name agy2api \
   -p 7861:7861 \
   -p 8080:8080 \
-  -e PASSWORD=pwd \
+  -e API_PASSWORD=api_pwd \
+  -e PANEL_PASSWORD=panel_pwd \
   -e PORT=7861 \
   -v "$(pwd)/data/creds":/app/creds \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-```bash
-# Using separate passwords
-docker run -d \
---name gcli2api \
--p 7861:7861 \
--p 8080:8080 \
--e API_PASSWORD=api_pwd \
--e PANEL_PASSWORD=panel_pwd \
--e PORT=7861 \
--v $(pwd)/data/creds:/app/creds \
-ghcr.io/su-kaka/gcli2api:latest
+  -v "$(pwd)/data/request_logs":/app/data/request_logs \
+  ghcr.io/su-kaka/agy2api:latest
 ```
 
 **Docker Compose Run Command**
@@ -110,22 +88,21 @@ ghcr.io/su-kaka/gcli2api:latest
     version: '3.8'
 
     services:
-      gcli2api:
-        image: ghcr.io/su-kaka/gcli2api:latest
-        container_name: gcli2api
+      agy2api:
+        image: ghcr.io/su-kaka/agy2api:latest
+        container_name: agy2api
         restart: unless-stopped
         network_mode: host
         environment:
-          # Using universal password (recommended for simple deployment)
-          - PASSWORD=pwd
+          # Password configuration (separate passwords)
+          - API_PASSWORD=your_api_password
+          - PANEL_PASSWORD=your_panel_password
           - PORT=7861
-          # Or use separate passwords (recommended for production)
-          # - API_PASSWORD=your_api_password
-          # - PANEL_PASSWORD=your_panel_password
         volumes:
           - ./data/creds:/app/creds
+          - ./data/request_logs:/app/data/request_logs
         healthcheck:
-          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
+          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('API_PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
           interval: 30s
           timeout: 10s
           retries: 3
@@ -155,9 +132,9 @@ ghcr.io/su-kaka/gcli2api:latest
   - Supports system parameter and Claude-specific features
   - Automatically converts to backend-supported format
 - **Antigravity API Support**: Supports OpenAI, Gemini, and Claude formats
-  - OpenAI format endpoint: `/antigravity/v1/chat/completions`
-  - Gemini format endpoint: `/antigravity/v1/models/{model}:generateContent` and `streamGenerateContent`
-  - Claude format endpoint: `/antigravity/v1/messages`
+  - OpenAI format endpoint: `/v1/chat/completions`
+  - Gemini format endpoint: `/v1/models/{model}:generateContent` and `streamGenerateContent`
+  - Claude format endpoint: `/v1/messages`
   - Supports all Antigravity models (Claude, Gemini, etc.)
   - Automatic model name mapping and thinking mode detection
 
@@ -177,8 +154,8 @@ ghcr.io/su-kaka/gcli2api:latest
 - Load balancing and concurrent request support
 - Automatic failure detection and credential disabling
 - Credential usage statistics and quota management
-- Support for manual enable/disable credential files
-- Batch credential file operations (enable, disable, delete)
+- Credentials keyed by email (unique); re-importing the same email overwrites automatically
+- Batch operations (enable, disable, delete)
 
 **Credential Status Monitoring**
 - Real-time credential health checks
@@ -189,7 +166,6 @@ ghcr.io/su-kaka/gcli2api:latest
 
 **Multiple Streaming Support**
 - True real-time streaming responses
-- Fake streaming mode (for compatibility)
 - Streaming anti-truncation feature (prevents answer truncation)
 - Asynchronous task management and timeout handling
 
@@ -197,31 +173,22 @@ ghcr.io/su-kaka/gcli2api:latest
 - Thinking chain content separation
 - Reasoning process (reasoning_content) handling
 - Multi-turn conversation context management
-- Compatibility mode (converts system messages to user messages)
 
 ### 🎛️ Web Management Console
 
 **Full-featured Web Interface**
-- OAuth authentication flow management (supports GCLI and Antigravity dual modes)
+- Antigravity OAuth authentication flow (with callback URL shortcut)
 - Credential file upload, download, and management
-- Real-time log viewing (WebSocket)
 - System configuration management
 - Usage statistics and monitoring dashboard
 - Mobile-friendly interface
 
 **Batch Operation Support**
-- ZIP file batch credential upload (GCLI and Antigravity)
+- ZIP/JSON batch credential upload (Antigravity)
 - Batch enable/disable/delete credentials
 - Batch user email retrieval
 - Batch configuration management
 - Unified batch upload interface for all credential types
-
-### 📈 Usage Monitoring
-
-**Real-time Monitoring**
-- WebSocket real-time log streams
-- System status monitoring
-- Credential health status
 
 ### 🔧 Advanced Configuration and Customization
 
@@ -237,9 +204,7 @@ ghcr.io/su-kaka/gcli2api:latest
 
 **Logging and Debugging**
 - Multi-level logging system (DEBUG, INFO, WARNING, ERROR)
-- Log file management
-- Real-time log streams
-- Log download and clearing
+- Console-only logging (`ENABLE_LOG=0` for full silence)
 
 ### 🔄 Environment Variables and Configuration Management
 
@@ -284,11 +249,11 @@ All models have 1M context window capacity. Each credential file provides 1000 r
 - When no ratio is specified, the API automatically decides the aspect ratio
 
 ### 🌊 Special Feature Variants
-- **Fake Streaming Mode**: Add `-假流式` suffix to any model name
-  - Example: `gemini-2.5-pro-假流式`
-  - For scenarios requiring streaming responses but server doesn't support true streaming
-- **Anti-truncation Mode**: Add `抗截断/` prefix to model name
-  - Example: `抗截断/gemini-2.5-pro`
+
+
+
+- **Anti-truncation Mode**: Add `抗截断-` prefix to model name
+  - Example: `抗截断-gemini-2.5-pro`
   - Uses synthetic tool calls to bypass truncation limits and ensure complete answers (works for both streaming and non-streaming)
 
 ### 🔧 Automatic Model Feature Detection
@@ -302,13 +267,11 @@ All models have 1M context window capacity. Each credential file provides 1000 r
 
 1. Visit `http://127.0.0.1:7861` (default port, modifiable via PORT environment variable)
 2. Complete OAuth authentication flow (default password: `pwd`, modifiable via environment variables)
-   - **GCLI Mode**: For obtaining Google Cloud Gemini API credentials
-   - **Antigravity Mode**: For obtaining Google Antigravity API credentials
 3. Configure client:
 
 **OpenAI Compatible Client:**
    - **Endpoint Address**: `http://127.0.0.1:7861/v1`
-   - **API Key**: `pwd` (default value, modifiable via API_PASSWORD or PASSWORD environment variables)
+   - **API Key**: `pwd` (default value, modifiable via API_PASSWORD environment variable)
 
 **Gemini Native Client:**
    - **Endpoint Address**: `http://127.0.0.1:7861`
@@ -317,134 +280,25 @@ All models have 1M context window capacity. Each credential file provides 1000 r
      - `x-goog-api-key: your_api_password`
      - URL parameter: `?key=your_api_password`
 
-### 🌟 Dual Authentication Mode Support
-
-**GCLI Authentication Mode**
-- Standard Google Cloud Gemini API authentication
-- Supports OAuth2.0 authentication flow
-- Automatically enables required Google Cloud APIs
-
-**Antigravity Authentication Mode**
-- Dedicated authentication for Google Antigravity API
-- Independent credential management system
-- Supports batch upload and management
-- Completely isolated from GCLI credentials
-
-**Unified Management Interface**
-- Manage both credential types in the "Batch Upload" tab
-- Upper section: GCLI credential batch upload (blue theme)
-- Lower section: Antigravity credential batch upload (green theme)
-- Separate credential management tabs for each type
-
 ## 💾 Data Storage Mode
 
 ### 🌟 Storage Backend Support
 
-gcli2api supports two storage backends: **Local SQLite (Default)** and **MongoDB (Cloud Distributed Storage)**
+agy2api supports two storage backends: **Local SQLite (Default)** and **PostgreSQL (Cloud Distributed Storage)**
 
 ### 📁 Local SQLite Storage (Default)
 
 **Default Storage Method**
 - No configuration required, works out of the box
-- Data is stored in a local SQLite database
+- Data is stored in a local SQLite database (`creds/credentials.db`)
 - Suitable for single-machine deployment and personal use
-- Automatically creates and manages database files
 
-### 🍃 MongoDB Cloud Storage Mode
+**Credential Structure**
 
-**Cloud Distributed Storage Solution**
+Credentials are stored as structured database columns (no JSON blobs), keyed uniquely by **email**:
+`email`, `access_token`, `refresh_token`, `client_id`, `client_secret`, `project_id`, `expiry`, `tier`
 
-When multi-instance deployment or cloud storage is needed, MongoDB storage mode can be enabled.
-
-### ⚙️ Enable MongoDB Mode
-
-**Step 1: Configure MongoDB Connection**
-```bash
-# Local MongoDB
-export MONGODB_URI="mongodb://localhost:27017"
-
-# MongoDB Atlas cloud service
-export MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net"
-
-# MongoDB with authentication
-export MONGODB_URI="mongodb://admin:password@localhost:27017/admin"
-
-# Optional: Custom database name (default: gcli2api)
-export MONGODB_DATABASE="my_gcli_db"
-```
-
-**Step 2: Start Application**
-```bash
-# Application will automatically detect MongoDB configuration and use MongoDB storage
-python web.py
-```
-
-**Docker Environment using MongoDB**
-```bash
-# Single MongoDB deployment
-docker run -d --name gcli2api \
-  -e MONGODB_URI="mongodb://mongodb:27017" \
-  -e API_PASSWORD=your_password \
-  --network your_network \
-  ghcr.io/su-kaka/gcli2api:latest
-
-# Using MongoDB Atlas
-docker run -d --name gcli2api \
-  -e MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/gcli2api" \
-  -e API_PASSWORD=your_password \
-  -p 7861:7861 \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Compose Example**
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:7
-    container_name: gcli2api-mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-    volumes:
-      - mongodb_data:/data/db
-    ports:
-      - "27017:27017"
-
-  gcli2api:
-    image: ghcr.io/su-kaka/gcli2api:latest
-    container_name: gcli2api
-    restart: unless-stopped
-    depends_on:
-      - mongodb
-    environment:
-      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/admin
-      - MONGODB_DATABASE=gcli2api
-      - API_PASSWORD=your_api_password
-      - PORT=7861
-    ports:
-      - "7861:7861"
-
-volumes:
-  mongodb_data:
-```
-
-
-### 🔧 Advanced Configuration
-
-**MongoDB Connection Optimization**
-```bash
-# Connection pool and timeout configuration
-export MONGODB_URI="mongodb://localhost:27017?maxPoolSize=10&serverSelectionTimeoutMS=5000"
-
-# Replica set configuration
-export MONGODB_URI="mongodb://host1:27017,host2:27017,host3:27017/gcli2api?replicaSet=myReplicaSet"
-
-# Read-write separation configuration
-export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryPreferred"
-```
+Import/export uses a standardized JSON format: `{"refresh_token": "...", "email": "...", "tier": "...", "project_id": "..."}` (only `refresh_token` is required; the rest are fetched automatically).
 
 ### Environment Variable Configuration
 
@@ -453,131 +307,78 @@ export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryP
 - `HOST`: Server listen address (default: 0.0.0.0)
 
 **Password Configuration**
-- `API_PASSWORD`: Chat API access password (default: inherits PASSWORD or pwd)
-- `PANEL_PASSWORD`: Control panel access password (default: inherits PASSWORD or pwd)
-- `PASSWORD`: Universal password, overrides the above two when set (default: pwd)
+- `API_PASSWORD`: Chat API access password (default: pwd)
+- `PANEL_PASSWORD`: Control panel access password (default: pwd)
+
+**Access Control Configuration**
+- `IP_WHITELIST_ENABLED`: Enable IP whitelist (default: false, no restriction)
+- `IP_WHITELIST`: IP whitelist, comma or newline separated (default: empty). Each entry supports a single IP (`192.168.1.1`), CIDR range (`192.168.1.0/24`), or start-end range (`10.0.0.1-10.0.0.100`), for both IPv4 / IPv6. Once enabled, only whitelisted IPs can access the panel and API; all others get 403. Effective immediately after panel save
+
+**Model Name Rewrite**
+- `MODEL_REWRITE_ENABLED`: Enable model name rewriting (default: false)
+- `MODEL_REWRITE_RULES`: Rewrite rules, each `[match regex, replacement model name]` (default: empty). First match from top wins; replacements support regex backreferences (e.g. `\1`). Example: map `gpt-4o` to `gemini-2.5-pro`. Effective immediately after panel save
 
 **Performance and Stability Configuration**
 - `RETRY_429_ENABLED`: Enable 429 error automatic retry (default: true)
-- `RETRY_429_MAX_RETRIES`: Maximum retry attempts for 429 errors (default: 3)
+- `RETRY_429_MAX_RETRIES`: Maximum retry attempts for 429 errors (default: 5)
 - `RETRY_429_INTERVAL`: Retry interval for 429 errors, in seconds (default: 1.0)
 - `ANTI_TRUNCATION_MAX_ATTEMPTS`: Maximum retry attempts for anti-truncation (default: 3)
 
 **Network and Proxy Configuration**
-- `PROXY`: HTTP/HTTPS proxy address (format: `http://host:port`)
+- `PROXY`: Proxy address (supports `http://`, `https://`, `socks5://`, `socks5h://`, optionally with credentials `user:pass@host:port`)
 - `OAUTH_PROXY_URL`: OAuth authentication proxy endpoint
 - `GOOGLEAPIS_PROXY_URL`: Google APIs proxy endpoint
-- `METADATA_SERVICE_URL`: Metadata service proxy endpoint
+- `PATH_PREFIX`: When the reverse proxy preserves the path prefix (e.g. `/AGY2API`), set this so the backend strips it before routing; default: empty (no stripping)
 
 **Automation Configuration**
-- `AUTO_BAN`: Enable automatic credential banning (default: true)
-- `AUTO_LOAD_ENV_CREDS`: Automatically load environment variable credentials at startup (default: false)
-
-**Compatibility Configuration**
-- `COMPATIBILITY_MODE`: Enable compatibility mode, converts system messages to user messages (default: false)
+- `AUTO_BAN`: Enable automatic credential banning (default: false)
+- `AUTO_BAN_ERROR_CODES`: Error codes that trigger automatic banning (default: 403)
 
 **Logging Configuration**
 - `LOG_LEVEL`: Log level (DEBUG/INFO/WARNING/ERROR, default: INFO)
-- `LOG_FILE`: Log file path (default: log.txt)
+- `ENABLE_LOG`: Full silence, no log output (set to 0 to enable, default: 1)
+
+**Response Behavior Configuration**
+- `RETURN_THOUGHTS_TO_FRONTEND`: Return thinking chain to the frontend (default: true)
+
+**Sensitive Word Filtering**
+- `SENSITIVE_WORDS_ENABLED`: Enable sensitive word filtering (default: false)
+- `SENSITIVE_WORDS`: Sensitive word list, comma or newline separated (default: empty). Matches are replaced with empty string, case-insensitive, Chinese supported, effective immediately after panel save
+
+**Usage Log**
+- `USAGE_LOG_ENABLED`: Enable request logging (default: true). Records every API request (model, credential, token usage, latency, status) to the database. No automatic cleanup; use the panel to clear logs manually
+
+**Request Body Debug Log**
+- `REQUEST_LOG_ENABLED`: Enable request body debug logging (default: false). When enabled and the final status code matches the configured codes, the full request headers (redacted) and body sent upstream are saved as JSON files under `data/request_logs/`. Only the file index is stored in the database; view it from the request log detail modal. Mainly for debugging request body errors (e.g. 400); clearing/truncating logs also deletes these files (mount `./data/request_logs:/app/data/request_logs` in Docker to persist)
+- `REQUEST_LOG_ERROR_CODES`: Status codes that trigger debug logging, comma separated (default: 400)
+
+**Credential Select Mode**
+- `CREDENTIAL_SELECT_MODE`: Credential selection mode (default: cache)
+  - `random` — Fully random load balancing, each request picks a random credential
+  - `cache` — Cache affinity (recommended): hashes "model + system instruction (or first user message)" into a session key; the same session reuses the same credential, hitting Google's upstream prompt cache; automatically switches and rebinds after credential cooldown
+  - `sticky` — Sticky: all requests lock onto one credential until it enters cooldown or gets disabled
+- `REDIS_URL`: Redis connection string (optional). When set, cache-mode session bindings are stored in Redis for multi-instance sharing; otherwise an in-process memory backend is used
 
 **Storage Configuration**
 
-**SQLite Configuration (Default)**
-- No configuration required, automatically uses local SQLite database
-- Database files are automatically created in the project directory
+**SQLite (Default)**
+- No configuration required, database file created in `creds/` automatically
 
-**MongoDB Configuration (Optional Cloud Storage)**
-- `MONGODB_URI`: MongoDB connection string (enables MongoDB mode when set)
-- `MONGODB_DATABASE`: MongoDB database name (default: gcli2api)
+**PostgreSQL (Optional Cloud Storage)**
+- `POSTGRESQL_URI`: PostgreSQL connection string (enables PostgreSQL mode when set)
 
 **Docker Usage Example**
 ```bash
-# Using universal password
-docker run -d --name gcli2api \
-  -e PASSWORD=mypassword \
-  -e PORT=7861 \
-  ghcr.io/su-kaka/gcli2api:latest
-
-# Using separate passwords
-docker run -d --name gcli2api \
+docker run -d --name agy2api \
   -e API_PASSWORD=my_api_password \
   -e PANEL_PASSWORD=my_panel_password \
   -e PORT=7861 \
-  ghcr.io/su-kaka/gcli2api:latest
+  ghcr.io/su-kaka/agy2api:latest
 ```
-
-Note: When credential environment variables are set, the system will prioritize using credentials from environment variables and ignore files in the `creds` directory.
 
 ### API Usage Methods
 
 This service supports multiple complete sets of API endpoints:
-
-#### 1. OpenAI Compatible Endpoints (GCLI)
-
-**Endpoint:** `/v1/chat/completions`
-**Authentication:** `Authorization: Bearer your_api_password`
-
-Supports two request formats with automatic detection and processing:
-
-**OpenAI Format:**
-```json
-{
-  "model": "gemini-2.5-pro",
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant"},
-    {"role": "user", "content": "Hello"}
-  ],
-  "temperature": 0.7,
-  "stream": true
-}
-```
-
-**Gemini Native Format:**
-```json
-{
-  "model": "gemini-2.5-pro",
-  "contents": [
-    {"role": "user", "parts": [{"text": "Hello"}]}
-  ],
-  "systemInstruction": {"parts": [{"text": "You are a helpful assistant"}]},
-  "generationConfig": {
-    "temperature": 0.7
-  }
-}
-```
-
-#### 2. Gemini Native Endpoints (GCLI)
-
-**Non-streaming Endpoint:** `/v1/models/{model}:generateContent`
-**Streaming Endpoint:** `/v1/models/{model}:streamGenerateContent`
-**Model List:** `/v1/models`
-
-**Authentication Methods (choose one):**
-- `Authorization: Bearer your_api_password`
-- `x-goog-api-key: your_api_password`
-- URL parameter: `?key=your_api_password`
-
-**Request Examples:**
-```bash
-# Using x-goog-api-key header
-curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-pro:generateContent" \
-  -H "x-goog-api-key: your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-
-# Using URL parameter
-curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-pro:streamGenerateContent?key=your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-```
 
 #### 3. Claude API Format Endpoints
 
@@ -623,12 +424,12 @@ curl -X POST "http://127.0.0.1:7861/v1/messages" \
 
 ##### Antigravity OpenAI Format Endpoints
 
-**Endpoint:** `/antigravity/v1/chat/completions`
+**Endpoint:** `/v1/chat/completions`
 **Authentication:** `Authorization: Bearer your_api_password`
 
 **Request Example:**
 ```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
+curl -X POST "http://127.0.0.1:7861/v1/chat/completions" \
   -H "Authorization: Bearer your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
@@ -642,8 +443,8 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
 
 ##### Antigravity Gemini Format Endpoints
 
-**Non-streaming Endpoint:** `/antigravity/v1/models/{model}:generateContent`
-**Streaming Endpoint:** `/antigravity/v1/models/{model}:streamGenerateContent`
+**Non-streaming Endpoint:** `/v1/models/{model}:generateContent`
+**Streaming Endpoint:** `/v1/models/{model}:streamGenerateContent`
 
 **Authentication Methods (choose one):**
 - `Authorization: Bearer your_api_password`
@@ -653,7 +454,7 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
 **Request Examples:**
 ```bash
 # Gemini format non-streaming request
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:generateContent" \
+curl -X POST "http://127.0.0.1:7861/v1/models/claude-sonnet-4-5:generateContent" \
   -H "x-goog-api-key: your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
@@ -666,7 +467,7 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:gene
   }'
 
 # Gemini format streaming request
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
+curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [
@@ -677,12 +478,12 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:strea
 
 ##### Antigravity Claude Format Endpoints
 
-**Endpoint:** `/antigravity/v1/messages`
+**Endpoint:** `/v1/messages`
 **Authentication:** `x-api-key: your_api_password`
 
 **Request Example:**
 ```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/messages" \
+curl -X POST "http://127.0.0.1:7861/v1/messages" \
   -H "x-api-key: your_api_password" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -749,33 +550,24 @@ for part in response.candidates[0].content.parts:
 
 **Authentication Endpoints**
 - `POST /auth/login` - User login
-- `POST /auth/start` - Start OAuth authentication (supports GCLI and Antigravity modes)
+- `POST /auth/start` - Start Antigravity OAuth authentication
 - `POST /auth/callback` - Handle OAuth callback
 - `POST /auth/callback-url` - Complete authentication directly from callback URL
 - `GET /auth/status/{project_id}` - Check authentication status
 
-**Credential Management Endpoints** (supports `mode=geminicli` or `mode=antigravity` parameter)
+**Credential Management Endpoints**
 - `POST /creds/upload` - Batch upload credential files (supports JSON and ZIP)
 - `GET /creds/status` - Get credential status list (supports pagination and filtering)
-- `GET /creds/detail/{filename}` - Get single credential details
+- `GET /creds/detail/{email}` - Get single credential details
 - `POST /creds/action` - Single credential operation (enable/disable/delete)
 - `POST /creds/batch-action` - Batch credential operations
-- `GET /creds/download/{filename}` - Download single credential file
-- `GET /creds/download-all` - Package download all credentials
-- `POST /creds/fetch-email/{filename}` - Get user email
-- `POST /creds/refresh-all-emails` - Batch refresh user emails
-- `POST /creds/deduplicate-by-email` - Deduplicate credentials by email
-- `POST /creds/verify-project/{filename}` - Verify credential Project ID
-- `GET /creds/quota/{filename}` - Get credential quota information (Antigravity only)
+- `GET /creds/export/{email}` - Export single credential as standardized JSON
+- `GET /creds/download-all` - Package download all credentials (standardized JSON, one file per email)
+- `GET /creds/quota/{email}` - Get credential quota information
 
 **Configuration Management Endpoints**
 - `GET /config/get` - Get current configuration
 - `POST /config/save` - Save configuration
-
-**Log Management Endpoints**
-- `POST /logs/clear` - Clear logs
-- `GET /logs/download` - Download log file
-- `WebSocket /logs/stream` - Real-time log stream
 
 **Version Information Endpoints**
 - `GET /version/info` - Get version information (optional `check_update=true` parameter to check for updates)
@@ -829,7 +621,7 @@ Response will include separated thinking content:
 **Anti-truncation Usage**
 ```json
 {
-  "model": "抗截断/gemini-2.5-pro",
+  "model": "抗截断-gemini-2.5-pro",
   "messages": [
     {"role": "user", "content": "Write a long article"}
   ],
@@ -837,14 +629,20 @@ Response will include separated thinking content:
 }
 ```
 
-**Compatibility Mode**
-```bash
-# Enable compatibility mode
-export COMPATIBILITY_MODE=true
-```
-In this mode, all `system` messages are converted to `user` messages, improving compatibility with certain clients.
-
 ---
+
+## 🛠️ Frontend Development
+
+The panel frontend source lives in `frontend/` (React + Vite + Tailwind CSS):
+
+```bash
+cd frontend
+npm install
+npm run dev     # Development mode, port 3000, proxies backend API
+npm run build    # Build to dist/ (used in production)
+```
+
+The backend serves the compiled static files under `dist/` directly; no Node.js runtime required.
 
 ## 💬 Community
 
@@ -852,7 +650,7 @@ Welcome to join the QQ group for discussion!
 
 **QQ Group: 1083250744**
 
-<img src="qq群.jpg" width="200" alt="QQ Group QR Code">
+<img src="qq-group.jpg" width="200" alt="QQ Group QR Code">
 
 ---
 

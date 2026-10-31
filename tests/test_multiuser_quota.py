@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
-from src import member_quota as quota
+from no_network import forbid_network  # Guard import-time upstream HTTP lookups.
+from src.multiuser import quota
 import test_multiuser as fixtures
 
 
@@ -64,7 +65,7 @@ class MemberQuotaTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json(), {'success': True, 'filename': self.filename,
                                           'models': self.models})
-        self.fetch.assert_awaited_once_with('synthetic-owner-token')
+        self.fetch.assert_awaited_once_with('synthetic-owner-token', 'sample-project-123')
         self.adapter.get_credential.assert_awaited_once_with(self.filename, mode='antigravity')
 
     def test_second_owner_uses_only_their_token(self):
@@ -74,7 +75,7 @@ class MemberQuotaTests(unittest.TestCase):
         self.store.credential_state(bob, name, 'antigravity', 'active')
         self.adapter.data[('antigravity', name)] = {**self.data, 'token': 'bob-only-token'}
         self.assertEqual(self.get(self.bob_headers, name).status_code, 200)
-        self.fetch.assert_awaited_once_with('bob-only-token')
+        self.fetch.assert_awaited_once_with('bob-only-token', 'sample-project-123')
 
     def test_cross_user_never_reaches_adapter(self):
         self.assert_error(self.get(self.bob_headers), 404)
@@ -111,8 +112,11 @@ class MemberQuotaTests(unittest.TestCase):
         self.get_adapter.assert_not_awaited()
 
     def test_admin_orphan_unknown_and_wrong_mode_mapping_are_hidden(self):
-        self.store.reserve_credential(self.owner, 'mu_wrong-mode.json', 'geminicli')
-        self.store.credential_state(self.owner, 'mu_wrong-mode.json', 'geminicli', 'active')
+        # Historical GeminiCLI mappings can remain in SQLite but are never
+        # eligible for the sole supported Antigravity mode.
+        with self.store.transaction() as db:
+            db.execute("INSERT INTO credential_owners(mode,filename,user_id,created_at,state) "
+                       "VALUES('geminicli','mu_wrong-mode.json',?,0,'active')", (self.owner,))
         for filename in ('legacy-admin.json', 'mu_orphan.json', 'unknown.json', 'mu_wrong-mode.json'):
             self.assert_error(self.get(filename=filename), 404)
         self.get_adapter.assert_not_awaited()
@@ -130,7 +134,7 @@ class MemberQuotaTests(unittest.TestCase):
         self.assertEqual(saved['access_token'], 'synthetic-new-token')
         self.assertEqual(saved['refresh_token'], 'synthetic-new-refresh')
         self.assertEqual(saved['expiry'], '2099-02-01T00:00:00+00:00')
-        self.fetch.assert_awaited_once_with('synthetic-new-token')
+        self.fetch.assert_awaited_once_with('synthetic-new-token', 'sample-project-123')
         self.adapter.update_credential_state.assert_not_awaited()
 
     def test_unexpired_token_never_writes_or_changes_disabled_state(self):
@@ -144,7 +148,7 @@ class MemberQuotaTests(unittest.TestCase):
         data = self.adapter.data[('antigravity', self.filename)]
         data['access_token'] = data.pop('token')
         self.assertEqual(self.get().status_code, 200)
-        self.fetch.assert_awaited_once_with('synthetic-owner-token')
+        self.fetch.assert_awaited_once_with('synthetic-owner-token', 'sample-project-123')
         self.adapter.store_credential.assert_not_awaited()
 
     def test_missing_credential_returns_unknown(self):
@@ -241,7 +245,7 @@ class MemberQuotaTests(unittest.TestCase):
         self.assertNotIn(('antigravity', self.filename), self.adapter.data)
 
     def test_deleted_during_upstream_returns_unknown(self):
-        async def deleting(token):
+        async def deleting(token, project_id):
             self.store.credential_state(self.owner, self.filename, 'antigravity', 'deleted')
             return {'success': True, 'models': self.models}
         self.fetch.side_effect = deleting
@@ -264,7 +268,7 @@ class MemberQuotaTests(unittest.TestCase):
             self.assertEqual(self.get().status_code, 200)
         self.assertTrue(self.adapter.data[('antigravity', self.filename)]['disabled'])
         self.adapter.update_credential_state.assert_not_awaited()
-        self.fetch.assert_awaited_once_with('synthetic-new-token')
+        self.fetch.assert_awaited_once_with('synthetic-new-token', 'sample-project-123')
 
     def test_real_upstream_helper_error_logging_is_private(self):
         original = Mock()

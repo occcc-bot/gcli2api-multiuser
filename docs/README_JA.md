@@ -1,20 +1,12 @@
-> **上流プロジェクトの参考資料:** この文書は `su-kaka/gcli2api` の旧ドキュメントです。ここにあるスクリプトやイメージは多ユーザー版を導入しません。本フォークの導入、招待登録、ユーザー別認証情報、OAuth 環境変数については [現在の README](../README.md) を参照してください。
+# AGY2API
 
-# GeminiCLI to API
-
-**GeminiCLIおよびAntigravityをOpenAI、GEMINI、Claude API互換インターフェースに変換**
+**Google AntigravityをOpenAI、Gemini、Claude API互換インターフェースに変換**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: CNC-1.0](https://img.shields.io/badge/License-CNC--1.0-red.svg)](../LICENSE)
-[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/su-kaka/gcli2api/pkgs/container/gcli2api)
+[![Docker](https://img.shields.io/badge/docker-available-blue.svg)](https://github.com/su-kaka/agy2api/pkgs/container/agy2api)
 
 [中文](../README.md) | [English](README_EN.md) | 日本語
-
-## 🚀 クイックデプロイ
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/97VMEF?referralCode=sukaka)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/su-kaka/gcli2api)
----
 
 ## インストールガイド
 
@@ -22,12 +14,12 @@
 
 **初期インストール**
 ```bash
-curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
+curl -o termux-install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/termux-install.sh" && chmod +x termux-install.sh && ./termux-install.sh
 ```
 
 **サービス再起動**
 ```bash
-cd gcli2api
+cd agy2api
 bash termux-start.sh
 ```
 
@@ -35,7 +27,7 @@ bash termux-start.sh
 
 **初期インストール**
 ```powershell
-iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
+iex (iwr "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/install.ps1" -UseBasicParsing).Content
 ```
 
 **サービス再起動**
@@ -45,12 +37,12 @@ iex (iwr "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/i
 
 **初期インストール**
 ```bash
-curl -o install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
+curl -o install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/install.sh" && chmod +x install.sh && ./install.sh
 ```
 
 **サービス再起動**
 ```bash
-cd gcli2api
+cd agy2api
 bash start.sh
 ```
 
@@ -58,12 +50,12 @@ bash start.sh
 
 **初期インストール**
 ```bash
-curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/gcli2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
+curl -o darwin-install.sh "https://raw.githubusercontent.com/su-kaka/agy2api/refs/heads/master/darwin-install.sh" && chmod +x darwin-install.sh && ./darwin-install.sh
 ```
 
 **サービス再起動**
 ```bash
-cd gcli2api
+cd agy2api
 bash start.sh
 ```
 
@@ -71,37 +63,21 @@ bash start.sh
 
 **Docker Runコマンド**
 ```bash
-# 共通パスワードを使用
-docker run -d --name gcli2api --network host -e PASSWORD=pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
-
-# 個別パスワードを使用
-docker run -d --name gcli2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds ghcr.io/su-kaka/gcli2api:latest
+docker run -d --name agy2api --network host -e API_PASSWORD=api_pwd -e PANEL_PASSWORD=panel_pwd -e PORT=7861 -v $(pwd)/data/creds:/app/creds -v $(pwd)/data/request_logs:/app/data/request_logs ghcr.io/su-kaka/agy2api:latest
 ```
 
 **Docker Mac**
 ```bash
-# 共通パスワードを使用
 docker run -d \
-  --name gcli2api \
-  -p 7861:7861 \
-  -p 8080:8080 \
-  -e PASSWORD=pwd \
-  -e PORT=7861 \
-  -v "$(pwd)/data/creds":/app/creds \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-```bash
-# 個別パスワードを使用
-docker run -d \
---name gcli2api \
+--name agy2api \
 -p 7861:7861 \
 -p 8080:8080 \
 -e API_PASSWORD=api_pwd \
 -e PANEL_PASSWORD=panel_pwd \
 -e PORT=7861 \
 -v $(pwd)/data/creds:/app/creds \
-ghcr.io/su-kaka/gcli2api:latest
+-v $(pwd)/data/request_logs:/app/data/request_logs \
+ghcr.io/su-kaka/agy2api:latest
 ```
 
 **Docker Compose Runコマンド**
@@ -110,22 +86,21 @@ ghcr.io/su-kaka/gcli2api:latest
     version: '3.8'
 
     services:
-      gcli2api:
-        image: ghcr.io/su-kaka/gcli2api:latest
-        container_name: gcli2api
+      agy2api:
+        image: ghcr.io/su-kaka/agy2api:latest
+        container_name: agy2api
         restart: unless-stopped
         network_mode: host
         environment:
-          # 共通パスワードを使用（シンプルなデプロイに推奨）
-          - PASSWORD=pwd
+          # パスワード設定（個別パスワード）
+          - API_PASSWORD=your_api_password
+          - PANEL_PASSWORD=your_panel_password
           - PORT=7861
-          # または個別パスワードを使用（本番環境に推奨）
-          # - API_PASSWORD=your_api_password
-          # - PANEL_PASSWORD=your_panel_password
         volumes:
           - ./data/creds:/app/creds
+          - ./data/request_logs:/app/data/request_logs
         healthcheck:
-          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
+          test: ["CMD-SHELL", "python -c \"import sys, urllib.request, os; port = os.environ.get('PORT', '7861'); req = urllib.request.Request(f'http://localhost:{port}/v1/models', headers={'Authorization': 'Bearer ' + os.environ.get('API_PASSWORD', 'pwd')}); sys.exit(0 if urllib.request.urlopen(req, timeout=5).getcode() == 200 else 1)\""]
           interval: 30s
           timeout: 10s
           retries: 3
@@ -155,9 +130,9 @@ ghcr.io/su-kaka/gcli2api:latest
   - systemパラメータおよびClaude固有機能に対応
   - バックエンド対応フォーマットへの自動変換
 - **Antigravity API対応**: OpenAI、Gemini、Claudeフォーマットに対応
-  - OpenAIフォーマットエンドポイント: `/antigravity/v1/chat/completions`
-  - Geminiフォーマットエンドポイント: `/antigravity/v1/models/{model}:generateContent` および `streamGenerateContent`
-  - Claudeフォーマットエンドポイント: `/antigravity/v1/messages`
+  - OpenAIフォーマットエンドポイント: `/v1/chat/completions`
+  - Geminiフォーマットエンドポイント: `/v1/models/{model}:generateContent` および `streamGenerateContent`
+  - Claudeフォーマットエンドポイント: `/v1/messages`
   - 全Antigravityモデルに対応（Claude、Geminiなど）
   - モデル名の自動マッピングおよびThinkingモード検出
 
@@ -189,7 +164,6 @@ ghcr.io/su-kaka/gcli2api:latest
 
 **複数のストリーミング対応**
 - リアルタイムストリーミングレスポンス
-- 疑似ストリーミングモード（互換性向上用）
 - ストリーミング途切れ防止機能（回答の途切れを防止）
 - 非同期タスク管理とタイムアウト処理
 
@@ -197,31 +171,22 @@ ghcr.io/su-kaka/gcli2api:latest
 - 思考チェーン内容の分離
 - 推論プロセス（reasoning_content）の処理
 - マルチターン会話のコンテキスト管理
-- 互換モード（systemメッセージをuserメッセージに変換）
 
 ### 🎛️ Web管理コンソール
 
 **フル機能のWebインターフェース**
-- OAuth認証フロー管理（GCLIおよびAntigravityデュアルモード対応）
+- Antigravity OAuth認証フロー（コールバックURLショートカット対応）
 - クレデンシャルファイルのアップロード、ダウンロード、管理
-- リアルタイムログ表示（WebSocket）
 - システム設定管理
 - 使用統計と監視ダッシュボード
 - モバイル対応インターフェース
 
 **一括操作対応**
-- ZIPファイルによるクレデンシャル一括アップロード（GCLIおよびAntigravity）
+- ZIP/JSON一括クレデンシャルアップロード（Antigravity）
 - クレデンシャルの一括有効化/無効化/削除
 - ユーザーメールの一括取得
 - 設定の一括管理
 - 全クレデンシャルタイプ統合一括アップロードインターフェース
-
-### 📈 使用状況モニタリング
-
-**リアルタイム監視**
-- WebSocketリアルタイムログストリーム
-- システムステータス監視
-- クレデンシャルヘルスステータス
 
 ### 🔧 高度な設定とカスタマイズ
 
@@ -237,9 +202,7 @@ ghcr.io/su-kaka/gcli2api:latest
 
 **ログとデバッグ**
 - マルチレベルログシステム（DEBUG、INFO、WARNING、ERROR）
-- ログファイル管理
-- リアルタイムログストリーム
-- ログのダウンロードとクリア
+- コンソールのみのログ出力（`ENABLE_LOG=0` で完全サイレント）
 
 ### 🔄 環境変数と設定管理
 
@@ -284,11 +247,8 @@ ghcr.io/su-kaka/gcli2api:latest
 - 比率未指定時はAPIが自動的にアスペクト比を決定
 
 ### 🌊 特殊機能バリアント
-- **疑似ストリーミングモード**: 任意のモデル名に `-假流式` サフィックスを追加
-  - 例: `gemini-2.5-pro-假流式`
-  - ストリーミングレスポンスが必要だがサーバーが真のストリーミングに対応していない場合に使用
-- **途切れ防止モード**: モデル名に `抗截断/` プレフィックスを追加
-  - 例: `抗截断/gemini-2.5-pro`
+- **途切れ防止モード**: モデル名に `抗截断-` プレフィックスを追加
+  - 例: `抗截断-gemini-2.5-pro`
   - 合成ツール呼び出しで途切れ制限を回避し、完全な回答を保証（ストリーミング・非ストリーミング両対応）
 
 ### 🔧 モデル機能の自動検出
@@ -303,12 +263,11 @@ ghcr.io/su-kaka/gcli2api:latest
 1. `http://127.0.0.1:7861` にアクセス（デフォルトポート、PORT環境変数で変更可能）
 2. OAuth認証フローを完了（デフォルトパスワード: `pwd`、環境変数で変更可能）
    - **GCLIモード**: Google Cloud Gemini APIクレデンシャルの取得用
-   - **Antigravityモード**: Google Antigravity APIクレデンシャルの取得用
 3. クライアントを設定:
 
 **OpenAI互換クライアント:**
    - **エンドポイントアドレス**: `http://127.0.0.1:7861/v1`
-   - **APIキー**: `pwd`（デフォルト値、API_PASSWORDまたはPASSWORD環境変数で変更可能）
+   - **APIキー**: `pwd`（デフォルト値、API_PASSWORD環境変数で変更可能）
 
 **Geminiネイティブクライアント:**
    - **エンドポイントアドレス**: `http://127.0.0.1:7861`
@@ -317,134 +276,25 @@ ghcr.io/su-kaka/gcli2api:latest
      - `x-goog-api-key: your_api_password`
      - URLパラメータ: `?key=your_api_password`
 
-### 🌟 デュアル認証モード対応
-
-**GCLI認証モード**
-- 標準Google Cloud Gemini API認証
-- OAuth2.0認証フローに対応
-- 必要なGoogle Cloud APIを自動的に有効化
-
-**Antigravity認証モード**
-- Google Antigravity API専用認証
-- 独立したクレデンシャル管理システム
-- 一括アップロードと管理に対応
-- GCLIクレデンシャルとは完全に分離
-
-**統合管理インターフェース**
-- 「一括アップロード」タブで両方のクレデンシャルタイプを管理
-- 上部セクション: GCLIクレデンシャル一括アップロード（青テーマ）
-- 下部セクション: Antigravityクレデンシャル一括アップロード（緑テーマ）
-- 各タイプ別のクレデンシャル管理タブ
-
 ## 💾 データストレージモード
 
 ### 🌟 ストレージバックエンド対応
 
-gcli2apiは2つのストレージバックエンドに対応: **ローカルSQLite（デフォルト）** と **MongoDB（クラウド分散ストレージ）**
+agy2apiは2つのストレージバックエンドに対応: **ローカルSQLite（デフォルト）** と **PostgreSQL（クラウド分散ストレージ）**
 
 ### 📁 ローカルSQLiteストレージ（デフォルト）
 
 **デフォルトストレージ方式**
 - 設定不要、すぐに利用可能
-- データはローカルSQLiteデータベースに保存
+- データはローカルSQLiteデータベース（`creds/credentials.db`）に保存
 - 単一マシンデプロイおよび個人利用に最適
-- データベースファイルの自動作成・管理
 
-### 🍃 MongoDBクラウドストレージモード
+**クレデンシャル構造**
 
-**クラウド分散ストレージソリューション**
+クレデンシャルは**メールアドレス（email）を一意キー**として構造化データベースカラムで保存されます（JSON blobは不使用）:
+`email`、`access_token`、`refresh_token`、`client_id`、`client_secret`、`project_id`、`expiry`、`tier`
 
-マルチインスタンスデプロイやクラウドストレージが必要な場合、MongoDBストレージモードを有効にできます。
-
-### ⚙️ MongoDBモードの有効化
-
-**ステップ1: MongoDB接続の設定**
-```bash
-# ローカルMongoDB
-export MONGODB_URI="mongodb://localhost:27017"
-
-# MongoDB Atlasクラウドサービス
-export MONGODB_URI="mongodb+srv://username:password@cluster.mongodb.net"
-
-# 認証付きMongoDB
-export MONGODB_URI="mongodb://admin:password@localhost:27017/admin"
-
-# オプション: カスタムデータベース名（デフォルト: gcli2api）
-export MONGODB_DATABASE="my_gcli_db"
-```
-
-**ステップ2: アプリケーションの起動**
-```bash
-# アプリケーションがMongoDB設定を自動検出し、MongoDBストレージを使用します
-python web.py
-```
-
-**Docker環境でのMongoDB使用**
-```bash
-# 単一MongoDBデプロイ
-docker run -d --name gcli2api \
-  -e MONGODB_URI="mongodb://mongodb:27017" \
-  -e API_PASSWORD=your_password \
-  --network your_network \
-  ghcr.io/su-kaka/gcli2api:latest
-
-# MongoDB Atlasの使用
-docker run -d --name gcli2api \
-  -e MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/gcli2api" \
-  -e API_PASSWORD=your_password \
-  -p 7861:7861 \
-  ghcr.io/su-kaka/gcli2api:latest
-```
-
-**Docker Composeの例**
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:7
-    container_name: gcli2api-mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-    volumes:
-      - mongodb_data:/data/db
-    ports:
-      - "27017:27017"
-
-  gcli2api:
-    image: ghcr.io/su-kaka/gcli2api:latest
-    container_name: gcli2api
-    restart: unless-stopped
-    depends_on:
-      - mongodb
-    environment:
-      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/admin
-      - MONGODB_DATABASE=gcli2api
-      - API_PASSWORD=your_api_password
-      - PORT=7861
-    ports:
-      - "7861:7861"
-
-volumes:
-  mongodb_data:
-```
-
-
-### 🔧 高度な設定
-
-**MongoDB接続の最適化**
-```bash
-# コネクションプールとタイムアウト設定
-export MONGODB_URI="mongodb://localhost:27017?maxPoolSize=10&serverSelectionTimeoutMS=5000"
-
-# レプリカセット設定
-export MONGODB_URI="mongodb://host1:27017,host2:27017,host3:27017/gcli2api?replicaSet=myReplicaSet"
-
-# リード・ライト分離設定
-export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryPreferred"
-```
+インポート/エクスポートは標準化JSON形式: `{"refresh_token": "...", "email": "...", "tier": "...", "project_id": "..."}`（`refresh_token` のみ必須、残りは自動取得）。
 
 ### 環境変数設定
 
@@ -453,131 +303,79 @@ export MONGODB_URI="mongodb://localhost:27017/gcli2api?readPreference=secondaryP
 - `HOST`: サーバーリッスンアドレス（デフォルト: 0.0.0.0）
 
 **パスワード設定**
-- `API_PASSWORD`: チャットAPIアクセスパスワード（デフォルト: PASSWORDまたはpwdを継承）
-- `PANEL_PASSWORD`: コントロールパネルアクセスパスワード（デフォルト: PASSWORDまたはpwdを継承）
-- `PASSWORD`: 共通パスワード、設定時に上記2つを上書き（デフォルト: pwd）
+- `API_PASSWORD`: チャットAPIアクセスパスワード（デフォルト: pwd）
+- `PANEL_PASSWORD`: コントロールパネルアクセスパスワード（デフォルト: pwd）
+
+**アクセス制御設定**
+- `IP_WHITELIST_ENABLED`: IPホワイトリストの有効化（デフォルト: false、制限なし）
+- `IP_WHITELIST`: IPホワイトリスト、カンマまたは改行区切り（デフォルト: 空）。各エントリは単一IP（`192.168.1.1`）、CIDR範囲（`192.168.1.0/24`）、開始-終了範囲（`10.0.0.1-10.0.0.100`）に対応、IPv4 / IPv6 両方可。有効化するとホワイトリスト内のIPのみがパネルとAPIにアクセスでき、それ以外は 403。パネル保存後すぐに有効
+
+**モデル名リライト設定**
+- `MODEL_REWRITE_ENABLED`: モデル名リライトの有効化（デフォルト: false）
+- `MODEL_REWRITE_RULES`: リライトルール、各 `[マッチ正規表現, 置換モデル名]`（デフォルト: 空）。上から最初にマッチしたものが有効、置換は正規表現の後方参照（例: `\1`）に対応。例: `gpt-4o` を `gemini-2.5-pro` にマッピング。パネル保存後すぐに有効
 
 **パフォーマンスと安定性の設定**
 - `RETRY_429_ENABLED`: 429エラー自動リトライの有効化（デフォルト: true）
-- `RETRY_429_MAX_RETRIES`: 429エラーの最大リトライ回数（デフォルト: 3）
+- `RETRY_429_MAX_RETRIES`: 429エラーの最大リトライ回数（デフォルト: 5）
 - `RETRY_429_INTERVAL`: 429エラーのリトライ間隔、秒単位（デフォルト: 1.0）
 - `ANTI_TRUNCATION_MAX_ATTEMPTS`: 途切れ防止の最大リトライ回数（デフォルト: 3）
 
 **ネットワークとプロキシ設定**
-- `PROXY`: HTTP/HTTPSプロキシアドレス（形式: `http://host:port`）
+- `PROXY`: プロキシアドレス（`http://`、`https://`、`socks5://`、`socks5h://` 対応、`user:pass@host:port` 形式の認証情報付きも可）
 - `OAUTH_PROXY_URL`: OAuth認証プロキシエンドポイント
 - `GOOGLEAPIS_PROXY_URL`: Google APIsプロキシエンドポイント
-- `METADATA_SERVICE_URL`: メタデータサービスプロキシエンドポイント
+- `PATH_PREFIX`: リバースプロキシがパスプレフィックスを保持する場合（例: `/AGY2API`）、バックエンドがルーティング前にプレフィックスを剥がすよう設定。デフォルト: 空（剥がさない）
 
 **自動化設定**
-- `AUTO_BAN`: クレデンシャル自動BANの有効化（デフォルト: true）
-- `AUTO_LOAD_ENV_CREDS`: 起動時に環境変数クレデンシャルを自動ロード（デフォルト: false）
-
-**互換性設定**
-- `COMPATIBILITY_MODE`: 互換モードの有効化、systemメッセージをuserメッセージに変換（デフォルト: false）
+- `AUTO_BAN`: クレデンシャル自動BANの有効化（デフォルト: false）
+- `AUTO_BAN_ERROR_CODES`: 自動BANをトリガーするエラーコード（デフォルト: 403）
 
 **ログ設定**
 - `LOG_LEVEL`: ログレベル（DEBUG/INFO/WARNING/ERROR、デフォルト: INFO）
-- `LOG_FILE`: ログファイルパス（デフォルト: log.txt）
+- `ENABLE_LOG`: 完全サイレント（0で無効化、デフォルト: 1）
+
+**レスポンス動作設定**
+- `RETURN_THOUGHTS_TO_FRONTEND`: 思考チェーンをフロントエンドに返す（デフォルト: true）
+
+**センシティブワードフィルタリング**
+- `SENSITIVE_WORDS_ENABLED`: センシティブワードフィルタリングの有効化（デフォルト: false）
+- `SENSITIVE_WORDS`: センシティブワードリスト、カンマまたは改行区切り（デフォルト: 空）。ヒットすると空文字列に置換、大文字小文字を区別しない、中国語対応、パネル保存後すぐに有効
+
+**使用ログ**
+- `USAGE_LOG_ENABLED`: リクエストログの有効化（デフォルト: true）。すべてのAPIリクエスト（モデル、クレデンシャル、トークン使用量、レイテンシ、ステータス）をデータベースに記録。自動削除なし、パネルから手動クリア可能
+
+**リクエストボディデバッグログ**
+- `REQUEST_LOG_ENABLED`: リクエストボディ詳細ログの有効化（デフォルト: false）。有効化すると、最終ステータスコードが指定コードに一致した場合、上流へ送信した完全なリクエストヘッダー（マスク済み）とボディを JSON ファイルとして `data/request_logs/` に保存。データベースにはファイル索引のみ記録し、リクエストログ詳細から閲覧可能。主にリクエストボディエラー（例: 400）のデバッグ用。ログのクリア/全削除時にこれらのファイルも削除（Docker では `./data/request_logs:/app/data/request_logs` をマウントして永続化）
+- `REQUEST_LOG_ERROR_CODES`: デバッグログを記録するステータスコードリスト、カンマ区切り（デフォルト: 400）
+
+**クレデンシャル選択モード**
+- `CREDENTIAL_SELECT_MODE`: クレデンシャル選択モード（デフォルト: cache）
+  - `random` — 完全ランダムな負荷分散、各リクエストはランダムにクレデンシャルを選択
+  - `cache` — キャッシュマッチング（推奨）:「モデル + システム指示（または最初の user メッセージ）」をハッシュ化したセッションキーで、同じセッションは同じクレデンシャルを再利用し、Google 上流の prompt cache にヒット。クールダウン後は自動切替と再バインド
+  - `sticky` — スティッキー: すべてのリクエストが CD に入るか無効化されるまで同じクレデンシャルに固定
+- `REDIS_URL`: Redis 接続文字列（オプション）。設定するとキャッシュモードのセッションバインドを Redis に保存しマルチインスタンス共有。未設定時はプロセス内メモリバックエンドを使用
 
 **ストレージ設定**
 
-**SQLite設定（デフォルト）**
-- 設定不要、自動的にローカルSQLiteデータベースを使用
-- データベースファイルはプロジェクトディレクトリに自動作成
+**SQLite（デフォルト）**
+- 設定不要、`creds/` にデータベースファイルを自動作成
 
-**MongoDB設定（オプションのクラウドストレージ）**
-- `MONGODB_URI`: MongoDB接続文字列（設定時にMongoDBモードを有効化）
-- `MONGODB_DATABASE`: MongoDBデータベース名（デフォルト: gcli2api）
+**PostgreSQL（オプションのクラウドストレージ）**
+- `POSTGRESQL_URI`: PostgreSQL接続文字列（設定するとPostgreSQLモードが有効）
+
 
 **Docker使用例**
 ```bash
-# 共通パスワードを使用
-docker run -d --name gcli2api \
-  -e PASSWORD=mypassword \
-  -e PORT=7861 \
-  ghcr.io/su-kaka/gcli2api:latest
-
-# 個別パスワードを使用
-docker run -d --name gcli2api \
+docker run -d --name agy2api \
   -e API_PASSWORD=my_api_password \
   -e PANEL_PASSWORD=my_panel_password \
   -e PORT=7861 \
-  ghcr.io/su-kaka/gcli2api:latest
+  ghcr.io/su-kaka/agy2api:latest
 ```
-
-注意: クレデンシャル環境変数が設定されている場合、システムは環境変数のクレデンシャルを優先的に使用し、`creds` ディレクトリ内のファイルを無視します。
 
 ### API使用方法
 
 本サービスは複数の完全なAPIエンドポイントセットに対応しています:
-
-#### 1. OpenAI互換エンドポイント（GCLI）
-
-**エンドポイント:** `/v1/chat/completions`
-**認証:** `Authorization: Bearer your_api_password`
-
-2つのリクエストフォーマットに対応し、自動検出・処理を行います:
-
-**OpenAIフォーマット:**
-```json
-{
-  "model": "gemini-2.5-pro",
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant"},
-    {"role": "user", "content": "Hello"}
-  ],
-  "temperature": 0.7,
-  "stream": true
-}
-```
-
-**Geminiネイティブフォーマット:**
-```json
-{
-  "model": "gemini-2.5-pro",
-  "contents": [
-    {"role": "user", "parts": [{"text": "Hello"}]}
-  ],
-  "systemInstruction": {"parts": [{"text": "You are a helpful assistant"}]},
-  "generationConfig": {
-    "temperature": 0.7
-  }
-}
-```
-
-#### 2. Geminiネイティブエンドポイント（GCLI）
-
-**非ストリーミングエンドポイント:** `/v1/models/{model}:generateContent`
-**ストリーミングエンドポイント:** `/v1/models/{model}:streamGenerateContent`
-**モデル一覧:** `/v1/models`
-
-**認証方式（いずれか1つを選択）:**
-- `Authorization: Bearer your_api_password`
-- `x-goog-api-key: your_api_password`
-- URLパラメータ: `?key=your_api_password`
-
-**リクエスト例:**
-```bash
-# x-goog-api-keyヘッダーを使用
-curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-pro:generateContent" \
-  -H "x-goog-api-key: your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-
-# URLパラメータを使用
-curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-pro:streamGenerateContent?key=your_api_password" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "contents": [
-      {"role": "user", "parts": [{"text": "Hello"}]}
-    ]
-  }'
-```
 
 #### 3. Claude APIフォーマットエンドポイント
 
@@ -617,18 +415,18 @@ curl -X POST "http://127.0.0.1:7861/v1/messages" \
 - すべてのClaude標準パラメータに対応
 - レスポンスフォーマットはClaude API仕様に準拠
 
-#### 4. Antigravity APIエンドポイント
+#### Antigravity APIエンドポイント
 
 **OpenAI、Gemini、Claudeの3フォーマットに対応**
 
 ##### Antigravity OpenAIフォーマットエンドポイント
 
-**エンドポイント:** `/antigravity/v1/chat/completions`
+**エンドポイント:** `/v1/chat/completions`
 **認証:** `Authorization: Bearer your_api_password`
 
 **リクエスト例:**
 ```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
+curl -X POST "http://127.0.0.1:7861/v1/chat/completions" \
   -H "Authorization: Bearer your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
@@ -642,8 +440,8 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
 
 ##### Antigravity Geminiフォーマットエンドポイント
 
-**非ストリーミングエンドポイント:** `/antigravity/v1/models/{model}:generateContent`
-**ストリーミングエンドポイント:** `/antigravity/v1/models/{model}:streamGenerateContent`
+**非ストリーミングエンドポイント:** `/v1/models/{model}:generateContent`
+**ストリーミングエンドポイント:** `/v1/models/{model}:streamGenerateContent`
 
 **認証方式（いずれか1つを選択）:**
 - `Authorization: Bearer your_api_password`
@@ -653,7 +451,7 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/chat/completions" \
 **リクエスト例:**
 ```bash
 # Geminiフォーマット非ストリーミングリクエスト
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:generateContent" \
+curl -X POST "http://127.0.0.1:7861/v1/models/claude-sonnet-4-5:generateContent" \
   -H "x-goog-api-key: your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
@@ -666,7 +464,7 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/claude-sonnet-4-5:gene
   }'
 
 # Geminiフォーマットストリーミングリクエスト
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
+curl -X POST "http://127.0.0.1:7861/v1/models/gemini-2.5-flash:streamGenerateContent?key=your_api_password" \
   -H "Content-Type: application/json" \
   -d '{
     "contents": [
@@ -677,12 +475,12 @@ curl -X POST "http://127.0.0.1:7861/antigravity/v1/models/gemini-2.5-flash:strea
 
 ##### Antigravity Claudeフォーマットエンドポイント
 
-**エンドポイント:** `/antigravity/v1/messages`
+**エンドポイント:** `/v1/messages`
 **認証:** `x-api-key: your_api_password`
 
 **リクエスト例:**
 ```bash
-curl -X POST "http://127.0.0.1:7861/antigravity/v1/messages" \
+curl -X POST "http://127.0.0.1:7861/v1/messages" \
   -H "x-api-key: your_api_password" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -749,33 +547,26 @@ for part in response.candidates[0].content.parts:
 
 **認証エンドポイント**
 - `POST /auth/login` - ユーザーログイン
-- `POST /auth/start` - OAuth認証の開始（GCLIおよびAntigravityモード対応）
+- `POST /auth/start` - Antigravity OAuth認証の開始
 - `POST /auth/callback` - OAuthコールバックの処理
 - `POST /auth/callback-url` - コールバックURLから直接認証を完了
 - `GET /auth/status/{project_id}` - 認証ステータスの確認
 
-**クレデンシャル管理エンドポイント**（`mode=geminicli` または `mode=antigravity` パラメータ対応）
+**クレデンシャル管理エンドポイント**
 - `POST /creds/upload` - クレデンシャルファイルの一括アップロード（JSONおよびZIP対応）
 - `GET /creds/status` - クレデンシャルステータス一覧の取得（ページネーションとフィルタリング対応）
-- `GET /creds/detail/{filename}` - 単一クレデンシャルの詳細取得
+- `GET /creds/detail/{email}` - 単一クレデンシャルの詳細取得
 - `POST /creds/action` - 単一クレデンシャル操作（有効化/無効化/削除）
 - `POST /creds/batch-action` - クレデンシャルの一括操作
-- `GET /creds/download/{filename}` - 単一クレデンシャルファイルのダウンロード
+- `GET /creds/export/{email}` - 単一クレデンシャルを標準化JSONでエクスポート
 - `GET /creds/download-all` - 全クレデンシャルの一括ダウンロード
-- `POST /creds/fetch-email/{filename}` - ユーザーメールの取得
 - `POST /creds/refresh-all-emails` - ユーザーメールの一括更新
 - `POST /creds/deduplicate-by-email` - メールによるクレデンシャルの重複排除
-- `POST /creds/verify-project/{filename}` - クレデンシャルのProject ID検証
-- `GET /creds/quota/{filename}` - クレデンシャルのクォータ情報取得（Antigravityのみ）
+- `GET /creds/quota/{email}` - クレデンシャルのクォータ情報取得
 
 **設定管理エンドポイント**
 - `GET /config/get` - 現在の設定の取得
 - `POST /config/save` - 設定の保存
-
-**ログ管理エンドポイント**
-- `POST /logs/clear` - ログのクリア
-- `GET /logs/download` - ログファイルのダウンロード
-- `WebSocket /logs/stream` - リアルタイムログストリーム
 
 **バージョン情報エンドポイント**
 - `GET /version/info` - バージョン情報の取得（オプション `check_update=true` パラメータで更新確認）
@@ -829,7 +620,7 @@ for part in response.candidates[0].content.parts:
 **途切れ防止の使用方法**
 ```json
 {
-  "model": "抗截断/gemini-2.5-pro",
+  "model": "抗截断-gemini-2.5-pro",
   "messages": [
     {"role": "user", "content": "長い記事を書いてください"}
   ],
@@ -837,14 +628,20 @@ for part in response.candidates[0].content.parts:
 }
 ```
 
-**互換モード**
-```bash
-# 互換モードを有効化
-export COMPATIBILITY_MODE=true
-```
-このモードでは、すべての `system` メッセージが `user` メッセージに変換され、特定のクライアントとの互換性が向上します。
-
 ---
+
+## 🛠️ フロントエンド開発
+
+パネルのフロントエンドソースは `frontend/` にあります（React + Vite + Tailwind CSS）:
+
+```bash
+cd frontend
+npm install
+npm run dev     # 開発モード、ポート3000、バックエンドAPIをプロキシ
+npm run build    # dist/ にビルド（本番で使用）
+```
+
+バックエンドは `dist/` のコンパイル済み静的ファイルを直接配信します。Node.jsランタイムは不要です。
 
 ## 💬 コミュニティ
 
@@ -852,7 +649,7 @@ QQグループへの参加をお待ちしています！
 
 **QQグループ: 1083250744**
 
-<img src="qq群.jpg" width="200" alt="QQグループQRコード">
+<img src="../docs/qq-group.jpg" width="200" alt="QQグループQRコード">
 
 ---
 

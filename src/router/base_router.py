@@ -3,6 +3,7 @@ Base Router - 共用的路由基础功能
 提供模型列表处理、通用响应等共同功能
 """
 
+from datetime import datetime, timezone
 from typing import List
 
 from src.models import Model, ModelList
@@ -21,7 +22,6 @@ def create_openai_model_list(
     Returns:
         ModelList对象
     """
-    from datetime import datetime, timezone
     current_timestamp = int(datetime.now(timezone.utc).timestamp())
     
     models = [

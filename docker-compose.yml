@@ -1,11 +1,22 @@
 services:
-  gcli2api:
+  agy2api:
     build: .
-    image: gcli2api-multiuser:local
+    image: agy2api-multiuser:local
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      API_PASSWORD: ${API_PASSWORD:?Set API_PASSWORD in .env}
+      PANEL_PASSWORD: ${PANEL_PASSWORD:?Set PANEL_PASSWORD in .env}
+      HOST: 0.0.0.0
+      PORT: ${PORT:-7861}
+      # Pass through an explicit value so startup rejects unsupported worker counts.
+      WORKERS: ${WORKERS:-1}
+      CREDENTIALS_DIR: /app/creds
+      MULTIUSER_DB_PATH: /app/creds/multiuser.sqlite3
     ports:
       - "${PUBLISHED_PORT:-7861}:${PORT:-7861}"
     volumes:
+      # New/migrated data only: never mount the old legacy directory in place.
       - ./creds:/app/creds
+      - ./data/request_logs:/app/data/request_logs

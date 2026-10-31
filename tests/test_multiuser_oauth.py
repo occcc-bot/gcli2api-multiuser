@@ -6,6 +6,7 @@ Run: python -m unittest discover -s tests -p 'test_multiuser*.py'
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timezone
+import os
 import sqlite3
 from types import SimpleNamespace
 import unittest
@@ -13,8 +14,9 @@ from unittest.mock import AsyncMock, patch
 from urllib.parse import urlencode
 
 from fastapi import HTTPException
-from src import member_oauth as oauth
-from src import multiuser as mu
+from no_network import forbid_network  # Guard import-time upstream HTTP lookups.
+from src.multiuser import oauth
+from src.multiuser import accounts as mu
 import test_multiuser as fixtures
 
 
@@ -37,10 +39,12 @@ class MemberOAuthTests(unittest.TestCase):
         fixtures.RouterTests.setUp(self)
         self.client.app.include_router(oauth.router)
         self.adapter.expected_owner = self.alice['user']['id']
-        for name in ('ANTIGRAVITY_CLIENT_ID', 'ANTIGRAVITY_CLIENT_SECRET'):
-            p = patch.object(oauth, name, 'synthetic-test-client')
-            p.start()
-            self.addCleanup(p.stop)
+        env = patch.dict(os.environ, {
+            'ANTIGRAVITY_OAUTH_CLIENT_ID': 'synthetic-test-client',
+            'ANTIGRAVITY_OAUTH_CLIENT_SECRET': 'synthetic-test-secret',
+        })
+        env.start()
+        self.addCleanup(env.stop)
         self.adapter.update_credential_state = AsyncMock(return_value=True)
         self.flow_patch = patch.object(oauth, 'Flow', FakeFlow)
         self.flow_patch.start()
@@ -79,6 +83,29 @@ class MemberOAuthTests(unittest.TestCase):
                 self.assertEqual(self.client.post(path, headers=headers, json=body).status_code, 401)
         self.assertEqual(self.sql('SELECT COUNT(*) FROM member_oauth_flows'), [(0,)])
 
+    def test_missing_or_partial_oauth_configuration_returns_generic_502(self):
+        empty = {'ANTIGRAVITY_OAUTH_CLIENT_ID': '', 'ANTIGRAVITY_OAUTH_CLIENT_SECRET': ''}
+        for settings in (empty, {**empty, 'ANTIGRAVITY_OAUTH_CLIENT_ID': 'synthetic-private-client'},
+                         {**empty, 'ANTIGRAVITY_OAUTH_CLIENT_SECRET': 'synthetic-private-secret'}):
+            with self.subTest(configured=tuple(k for k, v in settings.items() if v)):
+                flow = self.start()
+                with patch.dict(os.environ, settings), patch.object(oauth, 'Flow') as constructor:
+                    response = self.client.post('/users/oauth/start', headers=self.alice_headers, json={})
+                    self.assertEqual(response.status_code, 502)
+                    self.assertEqual(response.json(), {'detail': 'OAuth initialization failed; start again'})
+                    constructor.assert_not_called()
+                # Starting again supersedes the previous flow; get a fresh one
+                # to check completion if configuration disappears after start.
+                flow = self.start()
+                with patch.dict(os.environ, settings), patch.object(oauth, 'Flow') as constructor:
+                    response = self.complete(flow)
+                    self.assertEqual(response.status_code, 502)
+                    self.assertEqual(response.json(), {'detail': 'OAuth authorization failed; authorize again'})
+                    constructor.assert_not_called()
+                self.assertEqual(self.complete(flow).status_code, 400)
+        self.fetch.assert_not_awaited()
+        self.assertEqual(self.adapter.writes, [])
+
     def test_start_accepts_empty_body_and_rejects_client_flow_overrides(self):
         response = self.client.post('/users/oauth/start', headers=self.alice_headers)
         self.assertEqual(response.status_code, 200)
@@ -106,7 +133,7 @@ class MemberOAuthTests(unittest.TestCase):
         self.assertEqual(set(data), {'success', 'credential'})
         credential = data['credential']
         filename = credential['filename']
-        self.assertTrue(filename.startswith('mu_'))
+        self.assertEqual(filename, 'upload-oauth@example.test')
         self.assertEqual(self.store.credential_owner(filename, 'antigravity'), self.alice['user']['id'])
         self.assertEqual(self.store.owned_filenames(self.alice['user']['id'], 'antigravity'), [filename])
         self.assertEqual(self.store.owned_filenames(self.bob['user']['id'], 'antigravity'), [])

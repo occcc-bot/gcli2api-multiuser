@@ -1,0 +1,21 @@
+# No credential/application-client exceptions: only exact dummy examples.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Exact documentation placeholder and synthetic unit-test password"
+regexTarget = "secret"
+regexes = [
+  '''^correct\-horse\-battery\-123$''',
+  '''^your_api_password$''',
+ ]
+
+[[rules]]
+id = "google-oauth-client-id"
+description = "Google OAuth client identifiers must be supplied outside Git"
+regex = '''[0-9]{6,}-[A-Za-z0-9_-]{8,}\.apps\.googleusercontent\.com'''
+
+[[rules]]
+id = "google-oauth-client-secret"
+description = "Google OAuth client secrets must be supplied outside Git"
+regex = '''GOCSPX-[A-Za-z0-9_-]{16,}'''

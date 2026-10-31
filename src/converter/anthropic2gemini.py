@@ -202,19 +202,36 @@ def _cached_content_token_count(usage_metadata: Any) -> int:
     return int(usage_metadata.get("cachedContentTokenCount", 0) or 0)
 
 
-def _anthropic_usage_from_metadata(usage_metadata: Any) -> Dict[str, int]:
+def _anthropic_usage_from_metadata(usage_metadata: Any) -> Dict[str, Any]:
+    """
+    将 Gemini usageMetadata 转换为 Claude usage 字段
+
+    语义对齐（Gemini -> Claude）:
+    - Gemini promptTokenCount 包含缓存 token -> Claude input_tokens 不含缓存
+      （input_tokens = promptTokenCount - cachedContentTokenCount）
+    - Gemini candidatesTokenCount 不含推理 token -> Claude output_tokens 包含推理 token
+      （output_tokens = candidatesTokenCount + thoughtsTokenCount）
+    - 明细: cache_read_input_tokens / output_tokens_details.thinking_tokens
+    """
     if not isinstance(usage_metadata, dict):
         return {"input_tokens": 0, "output_tokens": 0}
 
     prompt_tokens_total = int(usage_metadata.get("promptTokenCount", 0) or 0)
     cached_tokens = _cached_content_token_count(usage_metadata)
-    usage = {
+    reasoning_tokens = int(usage_metadata.get("thoughtsTokenCount", 0) or 0)
+    usage: Dict[str, Any] = {
         "input_tokens": max(prompt_tokens_total - cached_tokens, 0),
-        "output_tokens": int(usage_metadata.get("candidatesTokenCount", 0) or 0),
+        "output_tokens": (
+            int(usage_metadata.get("candidatesTokenCount", 0) or 0)
+            + reasoning_tokens
+        ),
     }
 
     if cached_tokens > 0:
         usage["cache_read_input_tokens"] = cached_tokens
+
+    if reasoning_tokens > 0:
+        usage["output_tokens_details"] = {"thinking_tokens": reasoning_tokens}
 
     return usage
 
@@ -437,8 +454,8 @@ def convert_messages_to_contents(
     for msg in messages:
         role = msg.get("role", "user")
         
-        # system 消息已经由 merge_system_messages 处理，这里跳过
-        if role == "system":
+        # system/developer 消息已经由 merge_system_messages 处理，这里跳过
+        if role in ("system", "developer"):
             continue
         
         # 支持 'assistant' 和 'model' 角色（Google history usage）
@@ -806,7 +823,7 @@ def gemini_to_anthropic_response(
     if not (200 <= status_code < 300):
         return gemini_response
 
-    # 处理 GeminiCLI 的 response 包装格式
+    # 处理 Antigravity 的 response 包装格式
     if "response" in gemini_response:
         response_data = gemini_response["response"]
     else:
@@ -955,7 +972,9 @@ async def gemini_stream_to_anthropic_stream(
     input_tokens = 0
     output_tokens = 0
     cached_input_tokens = 0
+    reasoning_tokens = 0
     finish_reason: Optional[str] = None
+    stream_finished = False  # finishReason 收尾块之后只消费不转换（保持上游流走完以记录请求日志）
 
     def _sse_event(event: str, data: Dict[str, Any]) -> bytes:
         """生成 SSE 事件"""
@@ -974,10 +993,15 @@ async def gemini_stream_to_anthropic_stream(
         current_block_type = None
         return event
 
-    def _usage_payload() -> Dict[str, int]:
-        usage = {"input_tokens": input_tokens, "output_tokens": output_tokens}
+    def _usage_payload() -> Dict[str, Any]:
+        usage: Dict[str, Any] = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens + reasoning_tokens,
+        }
         if cached_input_tokens > 0:
             usage["cache_read_input_tokens"] = cached_input_tokens
+        if reasoning_tokens > 0:
+            usage["output_tokens_details"] = {"thinking_tokens": reasoning_tokens}
         return usage
 
     # 处理流式数据
@@ -994,6 +1018,12 @@ async def gemini_stream_to_anthropic_stream(
             # 记录接收到的原始chunk
             log.debug(f"[GEMINI_TO_ANTHROPIC] Raw chunk: {chunk[:200] if chunk else b''}")
 
+            # finishReason 之后的残余块只消费不转换：
+            # 提前 break 会沿生成器链下发 GeneratorExit，导致底层
+            # stream_request 的成功日志记录代码永远不执行（issue #438）
+            if stream_finished:
+                continue
+
             # 解析 Gemini 流式块
             if not chunk or not chunk.startswith(b"data: "):
                 log.debug(f"[GEMINI_TO_ANTHROPIC] Skipping chunk (not SSE format or empty)")
@@ -1002,7 +1032,10 @@ async def gemini_stream_to_anthropic_stream(
             raw = chunk[6:].strip()
             if raw == b"[DONE]":
                 log.debug(f"[GEMINI_TO_ANTHROPIC] Received [DONE] marker")
-                break
+                # 同 finishReason：不 break，改为消费剩余块直到流自然结束，
+                # 避免向底层 stream_request 下发 GeneratorExit 导致日志丢失
+                stream_finished = True
+                continue
 
             log.debug(f"[GEMINI_TO_ANTHROPIC] Parsing JSON: {raw[:200]}")
 
@@ -1013,7 +1046,7 @@ async def gemini_stream_to_anthropic_stream(
                 log.warning(f"[GEMINI_TO_ANTHROPIC] JSON parse error: {e}")
                 continue
 
-            # 处理 GeminiCLI 的 response 包装格式
+            # 处理 Antigravity 的 response 包装格式
             if "response" in data:
                 response = data["response"]
             else:
@@ -1031,6 +1064,8 @@ async def gemini_stream_to_anthropic_stream(
                         input_tokens = max(prompt_tokens_total - cached_input_tokens, 0)
                     if "candidatesTokenCount" in usage:
                         output_tokens = int(usage.get("candidatesTokenCount", 0) or 0)
+                    if "thoughtsTokenCount" in usage:
+                        reasoning_tokens = int(usage.get("thoughtsTokenCount", 0) or 0)
                     if "cachedContentTokenCount" in usage:
                         cached_input_tokens = int(usage.get("cachedContentTokenCount", 0) or 0)
                         input_tokens = max(
@@ -1225,7 +1260,9 @@ async def gemini_stream_to_anthropic_stream(
             # 检查是否结束
             if candidate.get("finishReason"):
                 finish_reason = candidate.get("finishReason")
-                break
+                # 不 break：继续消费上游残余块（如 [DONE]），保证底层
+                # stream_request 走正常收尾路径记录请求日志（issue #438）
+                stream_finished = True
 
         # 关闭最后的内容块
         close_evt = _close_block()

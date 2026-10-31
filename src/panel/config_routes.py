@@ -2,14 +2,15 @@
 配置路由模块 - 处理 /config/* 相关的HTTP请求
 """
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 import config
 from log import log
-from src.keeplive import keepalive_service
 from src.models import ConfigSaveRequest
-from src.storage_adapter import get_storage_adapter
+from src.storage.database import get_database
 from src.utils import verify_panel_token
 from .utils import get_env_locked_keys
 
@@ -28,15 +29,12 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config = {}
 
         # 基础配置
-        current_config["code_assist_endpoint"] = await config.get_code_assist_endpoint()
         current_config["credentials_dir"] = await config.get_credentials_dir()
         current_config["proxy"] = await config.get_proxy_config() or ""
 
         # 代理端点配置
         current_config["oauth_proxy_url"] = await config.get_oauth_proxy_url()
         current_config["googleapis_proxy_url"] = await config.get_googleapis_proxy_url()
-        current_config["resource_manager_api_url"] = await config.get_resource_manager_api_url()
-        current_config["service_usage_api_url"] = await config.get_service_usage_api_url()
         current_config["antigravity_api_url"] = await config.get_antigravity_api_url()
 
         # 自动封禁配置
@@ -51,29 +49,41 @@ async def get_config(token: str = Depends(verify_panel_token)):
         current_config["anti_truncation_max_attempts"] = await config.get_anti_truncation_max_attempts()
 
         # 兼容性配置
-        current_config["compatibility_mode_enabled"] = await config.get_compatibility_mode_enabled()
 
         # 思维链返回配置
         current_config["return_thoughts_to_frontend"] = await config.get_return_thoughts_to_frontend()
 
-        # Antigravity流式转非流式配置
-        current_config["antigravity_stream2nostream"] = await config.get_antigravity_stream2nostream()
-        current_config["antigravity_switch_credential_enabled"] = await config.get_antigravity_switch_credential_enabled()
+        # 敏感词过滤配置
+        current_config["sensitive_words_enabled"] = await config.get_sensitive_words_enabled()
+        current_config["sensitive_words"] = await config.get_sensitive_words()
 
-        # 保活配置
-        current_config["keepalive_url"] = await config.get_keepalive_url()
-        current_config["keepalive_interval"] = await config.get_keepalive_interval()
+        # IP 白名单配置
+        current_config["ip_whitelist_enabled"] = await config.get_ip_whitelist_enabled()
+        current_config["ip_whitelist"] = await config.get_ip_whitelist()
+
+        # 模型名复写配置
+        current_config["model_rewrite_enabled"] = await config.get_model_rewrite_enabled()
+        current_config["model_rewrite_rules"] = await config.get_model_rewrite_rules_config()
+
+        # 请求日志配置
+        current_config["usage_log_enabled"] = await config.get_usage_log_enabled()
+
+        # 请求体详细日志配置
+        current_config["request_log_enabled"] = await config.get_request_log_enabled()
+        current_config["request_log_error_codes"] = await config.get_request_log_error_codes()
+
+        # 凭证选择模式
+        current_config["credential_select_mode"] = await config.get_credential_select_mode()
 
         # 服务器配置
         current_config["host"] = await config.get_server_host()
         current_config["port"] = await config.get_server_port()
         current_config["api_password"] = await config.get_api_password()
         current_config["panel_password"] = await config.get_panel_password()
-        current_config["password"] = await config.get_server_password()
 
-        # 从存储系统读取配置
-        storage_adapter = await get_storage_adapter()
-        storage_config = await storage_adapter.get_all_config()
+        # 从数据库读取配置
+        database = await get_database()
+        storage_config = await database.get_all_config()
 
         # 获取环境变量锁定的配置键
         env_locked_keys = get_env_locked_keys()
@@ -98,7 +108,6 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         new_config = request.config
 
         log.debug(f"收到的配置数据: {list(new_config.keys())}")
-        log.debug(f"收到的password值: {new_config.get('password', 'NOT_FOUND')}")
 
         # 验证配置项
         if "retry_429_max_retries" in new_config:
@@ -116,8 +125,8 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
         if "retry_429_interval" in new_config:
             try:
                 interval = float(new_config["retry_429_interval"])
-                if interval < 0.01 or interval > 10:
-                    raise HTTPException(status_code=400, detail="429重试间隔必须在0.01-10秒之间")
+                if interval < 0 or interval > 3600:
+                    raise HTTPException(status_code=400, detail="429重试间隔必须在0-3600秒之间")
             except (ValueError, TypeError):
                 raise HTTPException(status_code=400, detail="429重试间隔必须是有效的数字")
 
@@ -131,35 +140,111 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
                     status_code=400, detail="抗截断最大重试次数必须是1-10之间的整数"
                 )
 
-        if "compatibility_mode_enabled" in new_config:
-            if not isinstance(new_config["compatibility_mode_enabled"], bool):
-                raise HTTPException(status_code=400, detail="兼容性模式开关必须是布尔值")
-
         if "return_thoughts_to_frontend" in new_config:
             if not isinstance(new_config["return_thoughts_to_frontend"], bool):
                 raise HTTPException(status_code=400, detail="思维链返回开关必须是布尔值")
 
-        if "antigravity_stream2nostream" in new_config:
-            if not isinstance(new_config["antigravity_stream2nostream"], bool):
-                raise HTTPException(status_code=400, detail="Antigravity流式转非流式开关必须是布尔值")
+        # 验证敏感词过滤配置
+        if "sensitive_words_enabled" in new_config:
+            if not isinstance(new_config["sensitive_words_enabled"], bool):
+                raise HTTPException(status_code=400, detail="敏感词过滤开关必须是布尔值")
 
-        if "antigravity_switch_credential_enabled" in new_config:
-            if not isinstance(new_config["antigravity_switch_credential_enabled"], bool):
-                raise HTTPException(status_code=400, detail="Antigravity切换凭证开关必须是布尔值")
+        if "sensitive_words" in new_config:
+            words = new_config["sensitive_words"]
+            if not isinstance(words, list):
+                raise HTTPException(status_code=400, detail="敏感词列表必须是数组（每行一个词）")
 
-        # 验证保活配置
-        if "keepalive_url" in new_config:
-            if not isinstance(new_config["keepalive_url"], str):
-                raise HTTPException(status_code=400, detail="保活URL必须是字符串")
+            cleaned_words = []
+            for word in words:
+                if not isinstance(word, str):
+                    raise HTTPException(status_code=400, detail=f"敏感词必须是字符串: {word!r}")
+                word = word.strip()
+                if not word:
+                    continue
+                try:
+                    re.compile(re.escape(word), re.IGNORECASE | re.UNICODE)
+                except re.error:
+                    raise HTTPException(status_code=400, detail=f"无效的敏感词: {word!r}")
+                cleaned_words.append(word)
+            new_config["sensitive_words"] = cleaned_words
 
-        if "keepalive_interval" in new_config:
-            try:
-                interval = int(new_config["keepalive_interval"])
-                if interval < 5 or interval > 86400:
-                    raise HTTPException(status_code=400, detail="保活间隔必须在 5-86400 秒之间")
-                new_config["keepalive_interval"] = interval
-            except (ValueError, TypeError):
-                raise HTTPException(status_code=400, detail="保活间隔必须是有效整数")
+        # 验证 IP 白名单配置（每行一条，支持单 IP / CIDR / 起止范围，IPv4 / IPv6）
+        if "ip_whitelist_enabled" in new_config:
+            if not isinstance(new_config["ip_whitelist_enabled"], bool):
+                raise HTTPException(status_code=400, detail="IP 白名单开关必须是布尔值")
+
+        if "ip_whitelist" in new_config:
+            entries = new_config["ip_whitelist"]
+            if not isinstance(entries, list):
+                raise HTTPException(status_code=400, detail="IP 白名单必须是数组（每行一条）")
+            cleaned_entries = []
+            for entry in entries:
+                if not isinstance(entry, str):
+                    raise HTTPException(status_code=400, detail=f"IP 白名单条目必须是字符串: {entry!r}")
+                entry = entry.strip()
+                if not entry:
+                    continue
+                try:
+                    config.parse_ip_whitelist_line(entry)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"无效的 IP 白名单条目: {entry!r}")
+                cleaned_entries.append(entry)
+            new_config["ip_whitelist"] = cleaned_entries
+
+        # 验证模型名复写配置（每条规则 [pattern, replacement]，pattern 支持正则）
+        if "model_rewrite_enabled" in new_config:
+            if not isinstance(new_config["model_rewrite_enabled"], bool):
+                raise HTTPException(status_code=400, detail="模型名复写开关必须是布尔值")
+
+        if "model_rewrite_rules" in new_config:
+            rules = new_config["model_rewrite_rules"]
+            if not isinstance(rules, list):
+                raise HTTPException(status_code=400, detail="模型名复写规则必须是数组（每条 [匹配正则, 替换模型名]）")
+            cleaned_rules = []
+            for rule in rules:
+                if not (isinstance(rule, (list, tuple)) and len(rule) == 2 and all(isinstance(x, str) for x in rule)):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"每条规则必须是 [匹配正则, 替换模型名] 的字符串二元组: {rule!r}",
+                    )
+                pattern, replacement = rule[0].strip(), rule[1].strip()
+                if not pattern or not replacement:
+                    raise HTTPException(status_code=400, detail=f"规则的正则和替换模型名均不能为空: {rule!r}")
+                try:
+                    re.compile(pattern)
+                except re.error:
+                    raise HTTPException(status_code=400, detail=f"无效的正则表达式: {pattern!r}")
+                cleaned_rules.append([pattern, replacement])
+            new_config["model_rewrite_rules"] = cleaned_rules
+
+        # 验证请求日志配置
+        if "usage_log_enabled" in new_config:
+            if not isinstance(new_config["usage_log_enabled"], bool):
+                raise HTTPException(status_code=400, detail="请求日志开关必须是布尔值")
+
+        # 验证请求体详细日志配置
+        if "request_log_enabled" in new_config:
+            if not isinstance(new_config["request_log_enabled"], bool):
+                raise HTTPException(status_code=400, detail="请求体详细日志开关必须是布尔值")
+
+        if "request_log_error_codes" in new_config:
+            codes = new_config["request_log_error_codes"]
+            if not isinstance(codes, list):
+                raise HTTPException(status_code=400, detail="详细日志错误码必须是数组，如 [400, 429]")
+            cleaned_codes = []
+            for code in codes:
+                if isinstance(code, bool) or not isinstance(code, int) or code < 100 or code > 599:
+                    raise HTTPException(status_code=400, detail=f"错误码必须是 100-599 的整数: {code!r}")
+                if code not in cleaned_codes:
+                    cleaned_codes.append(code)
+            new_config["request_log_error_codes"] = sorted(cleaned_codes)
+
+        # 验证凭证选择模式
+        if "credential_select_mode" in new_config:
+            mode = new_config["credential_select_mode"]
+            if mode not in ("random", "cache", "sticky"):
+                raise HTTPException(status_code=400, detail="凭证选择模式必须是 random / cache / sticky")
+
         # 验证服务器配置
         if "host" in new_config:
             if not isinstance(new_config["host"], str) or not new_config["host"].strip():
@@ -181,39 +266,25 @@ async def save_config(request: ConfigSaveRequest, token: str = Depends(verify_pa
             if not isinstance(new_config["panel_password"], str):
                 raise HTTPException(status_code=400, detail="控制面板密码必须是字符串")
 
-        if "password" in new_config:
-            if not isinstance(new_config["password"], str):
-                raise HTTPException(status_code=400, detail="访问密码必须是字符串")
-
         # 获取环境变量锁定的配置键
         env_locked_keys = get_env_locked_keys()
 
-        # 直接使用存储适配器保存配置
-        storage_adapter = await get_storage_adapter()
+        # 直接写入数据库
+        database = await get_database()
         for key, value in new_config.items():
             if key not in env_locked_keys:
-                await storage_adapter.set_config(key, value)
-                if key in ("password", "api_password", "panel_password"):
+                await database.set_config(key, value)
+                if key in ("api_password", "panel_password"):
                     log.debug(f"设置{key}字段为: {value}")
 
         # 重新加载配置缓存（关键！）
         await config.reload_config()
 
-        # 如果保活相关配置发生变化，立即重启保活服务
-        keepalive_keys = {"keepalive_url", "keepalive_interval"}
-        if keepalive_keys & set(new_config.keys()):
-            try:
-                await keepalive_service.restart()
-            except Exception as e:
-                log.warning(f"重启保活服务失败: {e}")
-
         # 验证保存后的结果
         test_api_password = await config.get_api_password()
         test_panel_password = await config.get_panel_password()
-        test_password = await config.get_server_password()
         log.debug(f"保存后立即读取的API密码: {test_api_password}")
         log.debug(f"保存后立即读取的面板密码: {test_panel_password}")
-        log.debug(f"保存后立即读取的通用密码: {test_password}")
 
         # 构建响应消息
         response_data = {

@@ -1,4 +1,4 @@
-# Multi-stage build for gcli2api
+# Multi-stage build for agy2api
 FROM python:3.13-slim as base
 
 # Set environment variables
@@ -37,5 +37,5 @@ COPY . .
 # Expose port
 EXPOSE 7861
 
-# Default command
+# 通过 web.py 启动，使 HOST/PORT 环境变量生效
 CMD ["python", "web.py"]

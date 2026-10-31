@@ -19,7 +19,8 @@ from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from src import multiuser as mu
+from no_network import forbid_network
+from src.multiuser import accounts as mu
 
 PASSWORD = 'correct-horse-battery-123'
 VALID_CREDENTIAL = {'refresh_token': 'refresh-token-123', 'project_id': 'sample-project-123'}
@@ -32,6 +33,7 @@ def make_user(store, username='alice'):
 
 class RepositoryTests(unittest.TestCase):
     def setUp(self):
+        forbid_network(self)
         self.temp = tempfile.TemporaryDirectory()
         self.store = mu.MultiuserStore(str(Path(self.temp.name) / 'multiuser.sqlite3'))
         self.addCleanup(self.temp.cleanup)
@@ -163,7 +165,9 @@ class RepositoryTests(unittest.TestCase):
         self.store.credential_state(alice, filename, 'antigravity', 'active')
         self.assertEqual(self.store.owned_filenames(alice, 'antigravity', names), [filename])
         self.assertEqual(self.store.owned_filenames(bob, 'antigravity', names), [])
-        self.assertEqual(self.store.owned_filenames(alice, 'geminicli', names), [])
+        with self.assertRaises(HTTPException) as caught:
+            self.store.owned_filenames(alice, 'geminicli', names)
+        self.assertEqual(caught.exception.status_code, 400)
         self.assertEqual(self.store.owned_filenames(None, 'antigravity', names), [])
         self.store.credential_state(alice, filename, 'antigravity', 'deleted')
         self.assertEqual(self.store.owned_filenames(alice, 'antigravity', names), [])
@@ -185,6 +189,7 @@ class RepositoryTests(unittest.TestCase):
 
 class APIAuthenticationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        forbid_network(self)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.env = patch.dict(os.environ, {'MULTIUSER_DB_PATH': str(Path(self.temp.name) / 'users.sqlite3'),
@@ -215,7 +220,7 @@ class APIAuthenticationTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(HTTPException) as caught:
                 await mu.authenticate_user_api(token)
             self.assertEqual(caught.exception.status_code, 401)
-            self.assertIsNone(mu.current_owner.get())
+            self.assertEqual(mu.current_owner.get(), mu.ORPHAN_OWNER)
 
     async def test_legacy_can_be_disabled(self):
         with self.assertRaises(HTTPException):
@@ -248,13 +253,15 @@ class APIAuthenticationTests(unittest.IsolatedAsyncioTestCase):
 
 class FakeAdapter:
     def __init__(self):
-        self.data = {('antigravity', 'legacy-admin.json'): dict(VALID_CREDENTIAL)}
+        self.data = {('antigravity', 'legacy-admin.json'):
+                     {**VALID_CREDENTIAL, 'refresh_token': 'admin-only-refresh-token'}}
+        self.database = self  # Expose the email DB seam used for duplicate checks.
         self.fail_store = False
         self.fail_delete = False
         self.expected_owner = None
         self.writes = []
 
-    async def store_credential(self, filename, data, mode='geminicli'):
+    async def store_credential(self, filename, data, mode='antigravity'):
         # Tests enforce mapping before data is visible to the storage adapter.
         if self.expected_owner is not None:
             assert mu.credential_owner(filename, mode) == self.expected_owner
@@ -262,20 +269,21 @@ class FakeAdapter:
         self.data[(mode, filename)] = data
         return not self.fail_store  # simulate partial write with failure
 
-    async def list_credentials(self, mode='geminicli'):
+    async def list_credentials(self, mode='antigravity'):
         return [filename for stored_mode, filename in self.data if stored_mode == mode]
 
-    async def delete_credential(self, filename, mode='geminicli'):
+    async def delete_credential(self, filename, mode='antigravity'):
         if self.fail_delete:
             return False
         return self.data.pop((mode, filename), None) is not None
 
-    async def get_credential(self, filename, mode='geminicli'):
+    async def get_credential(self, filename, mode='antigravity'):
         return self.data.get((mode, filename))
 
 
 class RouterTests(unittest.TestCase):
     def setUp(self):
+        forbid_network(self)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.env = patch.dict(os.environ, {'MULTIUSER_DB_PATH': str(Path(self.temp.name) / 'users.sqlite3')})
@@ -284,6 +292,18 @@ class RouterTests(unittest.TestCase):
         self.addCleanup(mu._store_for_path.cache_clear)
         self.store = mu.get_multiuser_store()
         self.adapter = FakeAdapter()
+
+        async def verified_identity(data):
+            # This fixture mocks only the Google identity boundary. Actual email
+            # database selection and identity verification have separate tests.
+            names = {'refresh-token-123': '123', 'refresh-token-456': '456',
+                     'synthetic-refresh': 'oauth'}
+            name = names[data['refresh_token']]
+            return f'upload-{name}@example.test', dict(data)
+
+        identity_patch = patch.object(mu, 'resolve_credential_identity', side_effect=verified_identity)
+        identity_patch.start()
+        self.addCleanup(identity_patch.stop)
         adapter_patch = patch.object(mu, 'get_storage_adapter', AsyncMock(return_value=self.adapter))
         adapter_patch.start()
         self.addCleanup(adapter_patch.stop)
@@ -353,11 +373,11 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(self.client.get('/users/me').status_code, 401)
         self.assertEqual(self.client.get('/users/keys').status_code, 401)
 
-    def test_upload_list_delete_isolation_and_generated_filenames(self):
+    def test_upload_list_delete_isolation_and_verified_email_ids(self):
         response = self.upload()
         self.assertEqual(response.status_code, 200, response.text)
         filename = response.json()['credential']['filename']
-        self.assertRegex(filename, r'^mu_[0-9a-f]{32}\.json$')
+        self.assertEqual(filename, 'upload-123@example.test')
         self.assertNotIn('evil', filename)
         rows = self.client.get('/users/credentials', headers=self.alice_headers).json()['credentials']
         self.assertEqual([row['filename'] for row in rows], [filename])
@@ -371,18 +391,22 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(mu.owned_filenames(mu.ADMIN_OWNER, 'antigravity', [filename, 'legacy-admin.json']), ['legacy-admin.json'])
         self.assertEqual(self.client.delete('/users/credentials/' + filename, headers=self.alice_headers).status_code, 200)
 
-    def test_batch_files_and_single_file_alias_mode(self):
+    def test_batch_files_alias_and_removed_geminicli_mode(self):
         self.adapter.expected_owner = self.alice['user']['id']
         response = self.client.post('/users/credentials', headers=self.alice_headers,
                                     data={'mode': 'antigravity'}, files=[
                                         ('files', ('first.json', json.dumps(VALID_CREDENTIAL))),
-                                        ('files', ('second.json', json.dumps(VALID_CREDENTIAL)))])
+                                        ('files', ('second.json', json.dumps({**VALID_CREDENTIAL,
+                                                                           'refresh_token': 'refresh-token-456'})))])
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(len(response.json()['credentials']), 2)
-        response = self.client.post('/users/credentials/upload?mode=geminicli', headers=self.alice_headers,
-                                    data={'mode': 'antigravity'}, files={'file': ('one.json', json.dumps(VALID_CREDENTIAL))})
+        response = self.client.post('/users/credentials/upload?mode=antigravity', headers=self.alice_headers,
+                                    files={'file': ('one.json', json.dumps(VALID_CREDENTIAL))})
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json()['credential']['mode'], 'geminicli')
+        self.assertEqual(response.json()['credential']['mode'], 'antigravity')
+        rejected = self.client.post('/users/credentials/upload?mode=geminicli', headers=self.alice_headers,
+                                    data={'mode': 'antigravity'}, files={'file': ('one.json', json.dumps(VALID_CREDENTIAL))})
+        self.assertEqual(rejected.status_code, 400)
 
     def test_bad_uploads_leave_no_ownership_or_adapter_writes(self):
         invalids = [b'not json', b'[]', b'{"refresh_token":"abc"}',

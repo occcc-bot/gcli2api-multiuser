@@ -3,14 +3,45 @@
 !package.json
 !package-lock.json
 !tsconfig.json
+!fork-version.json
 *.toml
 !pyproject.toml
+!.gitleaks.toml
 creds/
+data/
 CLAUDE.md
 GEMINI.md
 .kiro
-# Environment configuration
+# Environment configuration and private runtime data
 .env
+.env.*
+!.env.example
+backups/
+legacy_archive/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.pem
+*.key
+*.p12
+*.pfx
+.ssh/
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+.git-credentials
+.netrc
+*.jks
+*.keystore
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
 
 # Python
 uv.lock
@@ -22,7 +53,8 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+!dist/
+!dist/**
 downloads/
 eggs/
 .eggs/
@@ -38,6 +70,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Node (frontend)
+frontend/node_modules/
 
 # PyInstaller
 *.manifest
@@ -99,22 +134,3 @@ log.txt
 tools/
 aicode/
 streamchat/
-
-# Runtime data, credentials, local deployment artifacts
-.env.*
-!.env.example
-*.db
-*.db-*
-*.sqlite
-*.sqlite3
-*.sqlite3-*
-*.pem
-*.key
-*.p12
-*.pfx
-backups/
-releases/
-artifacts/
-deploy_remote.py
-remote_test.py
-container-inspect*
