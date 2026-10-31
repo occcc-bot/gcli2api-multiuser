@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./favicon.ico" type="image/x-icon" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AGY2API - Antigravity 控制面板</title>
+    <script>
+      // 反代把面板挂在子路径下时，访问地址可能不带末尾斜杠（如 /AGY2API），
+      // 相对路径资源会因此解析到根域；此处补齐为目录形式，保证资源请求落在同一子路径内。
+      // 需置于模块脚本之前：模块脚本加载失败时内联脚本仍会执行，跳转后才能正确加载
+      if (!location.pathname.endsWith("/")) {
+        location.replace(
+          location.pathname + "/" + location.search + location.hash
+        );
+      }
+    </script>
+  </head>
+  <body class="dark">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

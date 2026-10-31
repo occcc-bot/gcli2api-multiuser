@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  agy2api:
+    image: ghcr.io/su-kaka/agy2api:latest
+    container_name: agy2api
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # 密码配置（分离密码）
+      - API_PASSWORD=${API_PASSWORD:-your_api_password}
+      - PANEL_PASSWORD=${PANEL_PASSWORD:-your_panel_password}
+
+      # 服务器配置
+      - PORT=${PORT:-7861}
+      - HOST=${HOST:-0.0.0.0}
+
+      # 可选: PostgreSQL 配置 (分布式存储)
+      # - POSTGRESQL_URI=${POSTGRESQL_URI}
+
+      # 可选: 代理配置
+      # - PROXY=${PROXY}
+    volumes:
+      - ./data/creds:/app/creds
+      - ./data/request_logs:/app/data/request_logs
